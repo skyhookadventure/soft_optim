@@ -6,7 +6,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from soft_optim.fine_tune import create_dataset, infer_game, valid_games_fine_tuned_checkpoint
 from soft_optim.game_generator import evaluate_game_string
 
-
 class TestCreateDataset:
     def test_tokenizes_text(self):
         tokenizer = AutoTokenizer.from_pretrained("gpt2")
@@ -16,7 +15,7 @@ class TestCreateDataset:
         input_ids = first_example["input_ids"]
         expected_input_ids = tokenizer.encode(text)
         assert input_ids == expected_input_ids
-        
+
     def test_adds_labels(self):
         tokenizer = AutoTokenizer.from_pretrained("gpt2")
         dataset = create_dataset(tokenizer, 1)
