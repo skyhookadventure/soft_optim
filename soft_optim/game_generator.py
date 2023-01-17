@@ -68,7 +68,7 @@ class BoardState:
 
             if won:
                 return player
-            
+
         return False
 
     def __str__(self):
@@ -81,6 +81,18 @@ class BoardState:
             out += "\n"
         return out
 
+    def validate_str(self, string):
+        lines = string.strip("\n").split("\n")
+        if len(lines) != 3:
+            raise AssertionError("Invalid number of lines")
+
+        # iterate over it and convert to state
+        for line in lines:
+            if len(line) != 6:
+                raise AssertionError("Invalid line length")
+
+        return True
+
 
     def parse_str(self, string):
         lines = string.strip("\n").split("\n")
@@ -88,7 +100,7 @@ class BoardState:
         rev_map = {v:k for k,v in self.map.items()}
         if len(lines) != 3:
             print("Invalid string")
-        
+
         # iterate over it and convert to state
         for i, line in enumerate(lines):
             if len(line) != 6:
@@ -107,7 +119,7 @@ def evaluate_game_string(game_string):
         if outcome == b.x:
             return 1
         if outcome == b.o:
-            return -1            
+            return -1
     return 0
 
 
