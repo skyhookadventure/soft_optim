@@ -13,7 +13,7 @@ train:
 
 model:
   model_path: "lvwerra/gpt2-imdb"
-  num_layers_unfrozen: 2
+  num_layers_unfrozen: -1
 
 tokenizer:
   tokenizer_path: "gpt2"
