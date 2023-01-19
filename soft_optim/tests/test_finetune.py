@@ -3,8 +3,10 @@ from pathlib import Path
 import pytest
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from soft_optim.fine_tune import create_dataset, infer_game, valid_games_fine_tuned_checkpoint
+from soft_optim.fine_tune import (create_dataset, fine_tune, infer_game,
+                                  valid_games_fine_tuned_checkpoint)
 from soft_optim.game_generator import evaluate_game_string
+
 
 class TestCreateDataset:
     def test_tokenizes_text(self):
@@ -43,9 +45,12 @@ class TestCheckModelOutputsValidGame:
         
     
     def test_fine_tuned_gpt(self):
+        # Run the model if it hasn't already been run
+        if not valid_games_fine_tuned_checkpoint.exists():
+            fine_tune(log_weights_and_biases=False)
+        
         # Load the fine-tuned model
         model_name = "gpt2"
-        current_dir = Path(__file__).parent
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(valid_games_fine_tuned_checkpoint)
         
