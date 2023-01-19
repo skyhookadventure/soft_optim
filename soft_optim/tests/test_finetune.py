@@ -5,7 +5,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from soft_optim.fine_tune import (create_dataset, fine_tune, infer_game,
                                   valid_games_fine_tuned_checkpoint)
-from soft_optim.game import evaluate_game_string
+from soft_optim.game import TicTacToeGame
 
 
 class TestCreateDataset:
@@ -33,32 +33,32 @@ class TestCheckModelOutputsValidGame:
         model_name = "gpt2"
         model = AutoModelForCausalLM.from_pretrained(model_name)
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        
+
         # Infer the full game
         full_game:str = infer_game(model, tokenizer)
-        
+
         # Check it throws an error
         with pytest.raises(Exception) as exc_info:
-            evaluate_game_string(full_game)
+            TicTacToeGame.evaluate_game_string(None, full_game)
 
         assert exc_info
-        
-    
+
+
     def test_fine_tuned_gpt(self):
         # Run the model if it hasn't already been run
         if not valid_games_fine_tuned_checkpoint.exists():
             fine_tune(log_weights_and_biases=False)
-        
+
         # Load the fine-tuned model
         model_name = "gpt2"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(valid_games_fine_tuned_checkpoint)
-        
+
         # Infer the game
         full_game:str = infer_game(model, tokenizer)
-        
+
         # Check it is valid
         res = evaluate_game_string(full_game)
         assert type(res) == int
-        
-        
+
+

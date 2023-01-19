@@ -1,37 +1,36 @@
 """Tic Tac Toe Game implementation"""
 import re
-from enum import IntEnum
-from typing import List
+from typing import Tuple, List
 
 import numpy as np
 
 
 class TicTacToeBoard:
     """Tic Tac Toe Board
-    
+
     Contains the board state at a single point in time, i.e. 9 squares with 3
     possible values [-,x,o].
     """
-    
+
     board_state: np.ndarray
     """Board state as a numpy array of shape (3,3)
-    
+
     Note we use integers to represent the state of each square, rather than
     strings, which are defined below."""
-    
+
     blank: int = 0
     """Integer representation of blank on the board (numpy array)"""
-    
+
     x: int = 1
     """Integer representation of x on the board (numpy array)"""
-    
+
     o: int = 2
     """Integer representation of o on the board (numpy array)"""
-    
+
     def __init__(self, string=None):
         # Initialise an empty board
         self.board_state = np.full((3,3), self.blank, int)
-        
+
         # Setup the mapping of strings to square values
         self.map = {self.x:'x', self.o:'o', self.blank: '-'}
 
@@ -103,14 +102,31 @@ class TicTacToeBoard:
             out += "\n"
         return out
 
+    def get_counts(self):
+        blank_count = np.sum(self.board_state == self.blank)
+        x_count = np.sum(self.board_state == self.x)
+        o_count = np.sum(self.board_state == self.o)
+        return blank_count, x_count, o_count
+
+    def validate_state(self):
+        """ Check that the board state is valid, including that the number of
+        x's and o's is correct.
+        """
+        blank_count, x_count, o_count = self.get_counts()
+        assert blank_count + x_count + o_count == 9
+        assert (x_count == o_count) or (x_count == o_count + 1)
+
+        return True
+
     def validate_str(self, string):
+        """ Check that the string representation of the board state is valid. """
         lines = string.strip("\n").split("\n")
 
         # Check there are 3 lines
         if len(lines) != 3:
             raise ValueError("Invalid game string - incorrect number of rows")
 
-        # iterate over it and convert to state
+        # Check that each line is in the correct format
         for line in lines:
             if re.match(r"^[ ]*[-xo][ ][-xo][ ][-xo][ ]*$", line) is None:
                 raise ValueError("Invalid game string - invalid row format")
@@ -133,19 +149,112 @@ class TicTacToeBoard:
             for j, char in enumerate(l):
                 self.board_state[i,j] = rev_map[char]
 
+class TicTacToeGame:
+    """ Class to represent a game of Tic Tac Toe at multiple points in time.
+    """
+    def __init__(self,
+            init_board:str = None,
+            game_string:str = None,
+            check_valid_move:bool = True,
+            check_valid_state:bool = True ):
 
-def evaluate_game_string(game_string) -> int:
-    # split game string into board states
-    game_states = game_string.split("\n\n")[1:]
-    for state in game_states:
-        b = TicTacToeBoard(state)
-        outcome = b.check_win()
-        if outcome == b.x:
-            return 1
-        if outcome == b.o:
+        self.board = TicTacToeBoard(init_board)
+        self.history : List[TicTacToeBoard] = [self.board]
+
+        # Choose which validity checks to perform
+        # Check that the board state has only 'x', 'o', and '-' characters
+        self.check_valid_string = True
+
+        # Check that on state change, only one blank piece has changed
+        self.check_valid_move  = check_valid_move
+
+        # Check that the board state is valid, such that #x == #o or #x == #o + 1
+        self.check_valid_state = check_valid_state
+
+    def reset(self):
+        self.board = TicTacToeBoard()
+        self.history = [self.board]
+        return self
+
+    def validate_move(self, old_state: TicTacToeBoard, new_state: TicTacToeBoard):
+        if self.check_valid_state:
+            assert old_state.validate_state()
+            assert new_state.validate_state()
+
+        if self.check_valid_move:
+            # Check that the new state has one more piece than the old state
+            assert np.sum(new_state.board_state != old_state.board_state) == 1
+            assert np.sum(new_state.board_state == old_state.board_state) == 8
+
+            old_blank_count, _old_x_count, _old_o_count = old_state.get_counts()
+            new_blank_count, _new_x_count, _new_o_count = new_state.get_counts()
+            assert new_blank_count == old_blank_count - 1
+
+    def add_state(self, board_string: str) -> Tuple[int, bool]:
+        """ Add a new state to the game, check for validity.
+
+        Returns:
+            outcome (int): The outcome of the game, 0 if the game is not over
+            valid (bool): Whether the state was valid
+        """
+
+        # Perform validity checks
+        try:
+            # Load the new state and save it to the history
+            self.board = TicTacToeBoard(board_string)
+            self.history.append(self.board)
+
+            if self.check_valid_state:
+                assert self.board.validate_state()
+
+            if self.check_valid_move and len(self.history) > 1:
+                self.validate_move(self.history[-2], self.board)
+
+        except ValueError as e:
+            print(e)
+            return 0, False
+
+        # If valid, perform win checks
+        outcome = self.board.check_win()
+        return outcome, True
+
+    def validate_game_string(self, game_string: str) -> Tuple[int, bool]:
+        self.board = TicTacToeBoard()
+        self.history = [self.board]
+
+        # split game string into board states
+        board_strings = game_string.split("\n\n")[1:]
+
+        final_outcome = 0
+
+        for board_string in board_strings:
+            outcome, valid = self.add_state(board_string)
+
+            # If the game is won, return score based on winner
+            if outcome and not final_outcome:
+                final_outcome = outcome
+
+            if not valid:
+                return 0, False
+
+        return final_outcome, True
+
+    def evaluate_game_string(self,
+            game_string:str,
+            ) -> int:
+        outcome, valid = self.validate_game_string(game_string)
+
+        # If the game is not valid, return -1
+        if not valid:
             return -1
-    return 0
 
+        # If the game is won, return score based on winner
+        if outcome == self.board.x:
+            return 1
+        if outcome == self.board.o:
+            return -1
+
+        return 0
 
 def generate_random_game():
     b = TicTacToeBoard()
