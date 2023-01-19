@@ -1,8 +1,11 @@
 [tool.poetry]
 name = "soft_optim"
 version = "0.1.0"
-description = ""
-authors = ["Alan <41682961+alan-cooney@users.noreply.github.com>"]
+description = "Soft Optimization Research"
+authors = [
+    "Jeremy Gillen", 
+    "Alan Cooney<41682961+alan-cooney@users.noreply.github.com>", 
+    "Nicky Pochinkov"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
@@ -14,6 +17,7 @@ torch = "^1.13.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.1"
+mypy = "^0.991"
 
 [build-system]
 requires = ["poetry-core"]

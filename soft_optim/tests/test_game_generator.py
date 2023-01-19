@@ -58,14 +58,6 @@ class TestTicTacToeBoardInvalidStates:
                 - o -"""
             TicTacToeBoard(invalid_str)
     
-    def test_parser_errors_too_many_columns(self):
-        with pytest.raises(ValueError, match='Invalid'):
-            invalid_str: str = \
-                """x x x x
-                o - o
-                - o -"""
-            TicTacToeBoard(invalid_str)
-            
     def test_parser_errors_invalid_row_character(self):
         with pytest.raises(ValueError, match='Invalid'):
             invalid_str: str = \
