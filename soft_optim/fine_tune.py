@@ -5,7 +5,7 @@ from transformers import (AutoModelForCausalLM, AutoTokenizer, Trainer,
                           TrainingArguments)
 
 import wandb
-from soft_optim.game_generator import generate_dataset
+from soft_optim.game import generate_dataset
 
 
 def create_dataset(tokenizer: AutoTokenizer, number_games: int = 10) -> Dataset:
