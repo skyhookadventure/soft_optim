@@ -1,9 +1,12 @@
-import wandb
+from pathlib import Path
+
 from datasets import Dataset
 from transformers import (AutoModelForCausalLM, AutoTokenizer, Trainer,
-                          TrainingArguments )
+                          TrainingArguments)
+
+import wandb
 from soft_optim.game_generator import generate_dataset
-from pathlib import Path
+
 
 def create_dataset(tokenizer: AutoTokenizer, number_games: int = 10) -> Dataset:
     """Create the dataset
@@ -21,7 +24,7 @@ def create_dataset(tokenizer: AutoTokenizer, number_games: int = 10) -> Dataset:
     list_of_game_strings = generate_dataset(number_games)
     dataset = Dataset.from_dict({"text":list_of_game_strings})
     
-    # Tokenize the text prompts (creates "input_ids" property for each dataset item)
+    # Tokenize the text prompts (creates "input_ids" property for each dataset item) 
     dataset = dataset.map(lambda examples: tokenizer(examples["text"]), batched=True)
     
     # Set the labels to be the same as the input IDs
@@ -30,10 +33,13 @@ def create_dataset(tokenizer: AutoTokenizer, number_games: int = 10) -> Dataset:
     return dataset
 
 
-valid_games_fine_tuned_checkpoint = Path(__file__).parent.parent / ".checkpoints" / "valid_games_fine_tune"
+valid_games_fine_tuned_checkpoint = Path(__file__).parent.parent / ".checkpoints" / "fine_tuned_gpt2"
 
 
-def fine_tune(model_name: str = "gpt2", log_weights_and_biases: bool = False) -> AutoModelForCausalLM:
+def fine_tune(
+    model_name: str = "gpt2", 
+    log_weights_and_biases: bool = False,
+    ) -> AutoModelForCausalLM:
     """Fine tune a language model on the games dataset
     
     This is so that our model reliably outputs allowed game moves.
