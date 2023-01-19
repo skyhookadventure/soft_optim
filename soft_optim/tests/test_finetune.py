@@ -5,7 +5,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from soft_optim.fine_tune import (create_dataset, fine_tune, infer_game,
                                   valid_games_fine_tuned_checkpoint)
-from soft_optim.game_generator import evaluate_game_string
+from soft_optim.game import evaluate_game_string
 
 
 class TestCreateDataset:

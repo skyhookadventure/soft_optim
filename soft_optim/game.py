@@ -1,19 +1,41 @@
-""" Basic tic tac toe implementation to use as a language model finetuning task. """
-import numpy as np
+"""Tic Tac Toe Game implementation"""
+import re
+from enum import IntEnum
 from typing import List
 
-class BoardState:
-    """ A class to represent the state of a tic tac toe game """
+import numpy as np
+
+
+class TicTacToeBoard:
+    """Tic Tac Toe Board
+    
+    Contains the board state at a single point in time, i.e. 9 squares with 3
+    possible values [-,x,o].
+    """
+    
+    board_state: np.ndarray
+    """Board state as a numpy array of shape (3,3)
+    
+    Note we use integers to represent the state of each square, rather than
+    strings, which are defined below."""
+    
+    blank: int = 0
+    """Integer representation of blank on the board (numpy array)"""
+    
+    x: int = 1
+    """Integer representation of x on the board (numpy array)"""
+    
+    o: int = 2
+    """Integer representation of o on the board (numpy array)"""
+    
     def __init__(self, string=None):
-        self.blank = 0
-        self.x = 1
-        self.o = 2
-        self.x_str = 'x'
-        self.o_str = 'o'
-        self.board_state = self.blank*np.ones((3,3))
+        # Initialise an empty board
+        self.board_state = np.full((3,3), self.blank, int)
+        
+        # Setup the mapping of strings to square values
         self.map = {self.x:'x', self.o:'o', self.blank: '-'}
 
-        # if a string is passed, parse it
+        # Parse a string representation of the board state, if given
         if string is not None:
             self.parse_str(string)
 
@@ -99,14 +121,20 @@ class BoardState:
         
         # create a dict that does the opposite of self.map
         rev_map = {v:k for k,v in self.map.items()}
+        
+        # Check there are 3 lines
         if len(lines) != 3:
-            print("Invalid string")
+            raise ValueError("Invalid game string - incorrect number of rows")
 
         # iterate over it and convert to state
         for i, line in enumerate(lines):
-            if len(line) != 6:
-                print("Invalid string1")
+            
+            # Check the line is in the correct format
+            if re.match(r"^[ ]*[-xo][ ][-xo][ ][-xo][ ]*$", line) is None:
+                raise ValueError("Invalid game string - invalid row format")
+            
             l = line.strip(" ").split(" ")
+            
             for j, char in enumerate(l):
                 self.board_state[i,j] = rev_map[char]
 
@@ -115,7 +143,7 @@ def evaluate_game_string(game_string) -> int:
     # split game string into board states
     game_states = game_string.split("\n\n")[1:]
     for state in game_states:
-        b = BoardState(state)
+        b = TicTacToeBoard(state)
         outcome = b.check_win()
         if outcome == b.x:
             return 1
@@ -125,7 +153,7 @@ def evaluate_game_string(game_string) -> int:
 
 
 def generate_random_game():
-    b = BoardState()
+    b = TicTacToeBoard()
     game_state_history = [ str(b) ]
     for t in range(9):
         valid_moves = b.get_valid_moves()
