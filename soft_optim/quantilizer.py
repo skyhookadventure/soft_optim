@@ -1,39 +1,66 @@
-from typing import List, Callable
+from typing import List
 import numpy as np
 from soft_optim.fine_tune import infer_game
 
 def empirical_error_bound(
     proxy_reward: np.array,  
     human_evaluated_reward: np.array,
-    epsilon: float) -> float:
-    """Empirical error bound
-
-    Uses Hoeffding's inequality (one-sided bound)
+    epsilon: float = 0.001
+    ) -> float:
+    """Empirical error bound calculation
+    
+    Calculates the error bound such that for further samples, there is at most a
+    small (epsilon) probability that the true reward would be less than the
+    proxy reward minus the bound. This gives us a worst-case confidence
+    interval, when we don't know how the errors are distributed.
+    
+    Uses Hoeffding's inequality to calculate the lower error bound
     https://en.wikipedia.org/wiki/Hoeffding%27s_inequality
-
+    
+    As an example, assume we've run a model many times to get sample games. For
+    each sample, we've calculated both the proxy_reward (i.e. from the RL reward
+    function) and the human evaluate reward (e.g. from human feedback). This
+    function can then be used to calculate the "error bound" such that there is
+    at most a small (epsilon) probability that any new sample's human evaluated
+    reward would be lower than proxy_reward minus error_bound.
+    
     Args:
-        proxy_reward: The reward function
-        human_evaluated_reward: Human evaluation of each game, as e.g 1
-        if it didn't break the rules and won, 0 if it did break the rules or
-        didn't win.
-        epsilon: The probability of the error bound being exceeded.
+        proxy_reward: Sample rewards in [0,1]
+        human_evaluated_reward: Human evaluated rewards in [0,1]
+        epsilon: The probability of the proxy reward deviating below the error bound.
 
     Returns:
-        float: Error bound (expected difference between human and proxy reward
-        evaluations). 
+        float: Error bound (such that the probability that human evaluated
+        reward would be lower than the proxy reward minus this bound, is at most
+        epsilon).
     """
-    # Expected difference between the two rewards
-    expected_difference: float = np.abs(proxy_reward - human_evaluated_reward).mean()
+    expected_difference_rewards: float = \
+        np.abs(proxy_reward - human_evaluated_reward).mean()
     
-    number_samples = len(proxy_reward)
+    number_samples: int = len(proxy_reward)
     
-    return expected_difference + np.sqrt(-np.log(epsilon) / (2 * number_samples))
+    # The confidence bound gets smaller when epsilon is larger, and also gets
+    # smaller when the number of samples is larger.
+    return expected_difference_rewards + np.sqrt(-np.log(epsilon) / (2 * number_samples))
     
 
 def get_proxy_value_cutoff(error_bound: float, number_samples: int) -> float:
-    """Get the proxy value cutoff
+    """Get the proxy value cutoff (q)
     
-    
+    Get the cut-off such that sampling from prior policies above this cut-off
+    will result in achieving the highest expected reward possible, whilst
+    limiting the probability (to epsilon) that the model hasn't over-fitted to
+    the training data.
+
+    Args:
+        error_bound: Empirically calculated error bound, i.e. the bound
+        calculated whereby there is at most a small (epsilon) probability that
+        the true reward will be less than the proxy reward minus this error
+        bound.
+        number_samples: Number of times to sample policies from the model
+
+    Returns:
+        float: Proxy value cut-off (q)
     """
     proxy_rewards: List[float] = []
     
