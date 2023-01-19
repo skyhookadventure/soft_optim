@@ -1,0 +1,41 @@
+name: Checks
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.devcontainer/**'
+      - '.github/**'
+      - '.vscode/**'
+      - '.gitignore'
+      - '*.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '.devcontainer/**'
+      - '.github/**'
+      - '.vscode/**'
+      - '.gitignore'
+      - '*.md'
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: "poetry"
+      - name: Install dependencies
+        run: poetry install --with dev
+      - name: Pytest
+        run: poetry run pytest
+      - name: Type check
+        run: poetry run mypy soft_optim
