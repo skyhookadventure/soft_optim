@@ -2,8 +2,9 @@
 .venv/
 __pycache__/
 
-# Tests
+# Caches
 .pytest_cache/
+.mypy_cache/
 
 # Checkpoints
 .checkpoints/
