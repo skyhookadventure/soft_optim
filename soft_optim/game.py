@@ -105,36 +105,31 @@ class TicTacToeBoard:
 
     def validate_str(self, string):
         lines = string.strip("\n").split("\n")
-        if len(lines) != 3:
-            raise AssertionError("Invalid number of lines")
 
-        # iterate over it and convert to state
-        for line in lines:
-            if len(line) != 6:
-                raise AssertionError("Invalid line length")
-
-        return True
-
-
-    def parse_str(self, string):
-        lines = string.strip("\n").split("\n")
-        
-        # create a dict that does the opposite of self.map
-        rev_map = {v:k for k,v in self.map.items()}
-        
         # Check there are 3 lines
         if len(lines) != 3:
             raise ValueError("Invalid game string - incorrect number of rows")
 
         # iterate over it and convert to state
-        for i, line in enumerate(lines):
-            
-            # Check the line is in the correct format
+        for line in lines:
             if re.match(r"^[ ]*[-xo][ ][-xo][ ][-xo][ ]*$", line) is None:
                 raise ValueError("Invalid game string - invalid row format")
-            
+
+        return True
+
+    def parse_str(self, string: str):
+        # Ensure the state string is of the correct format
+        self.validate_str(string)
+
+        # Split the string into lines
+        lines = string.strip("\n").split("\n")
+
+        # create a dict that does the opposite of self.map
+        rev_map = {v:k for k,v in self.map.items()}
+
+        # iterate over it and convert to state
+        for i, line in enumerate(lines):
             l = line.strip(" ").split(" ")
-            
             for j, char in enumerate(l):
                 self.board_state[i,j] = rev_map[char]
 
