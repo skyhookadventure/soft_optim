@@ -1,6 +1,6 @@
 """Tic Tac Toe Game implementation"""
 import re
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 import numpy as np
 
@@ -153,8 +153,8 @@ class TicTacToeGame:
     """ Class to represent a game of Tic Tac Toe at multiple points in time.
     """
     def __init__(self,
-            init_board:str = None,
-            game_string:str = None,
+            init_board: Optional[str] = None,
+            game_string: Optional[str] = None,
             check_valid_move:bool = True,
             check_valid_state:bool = True ):
 
@@ -247,7 +247,7 @@ class TicTacToeGame:
 
     def evaluate_game_string(self,
             game_string:str,
-            ) -> int:
+            ) -> float:
         outcome, valid = self.validate_game_string(game_string)
 
         # If the game is not valid, return -1
@@ -293,4 +293,4 @@ if __name__ == "__main__":
     print(game)
 
     # Evaluate the game
-    print(evaluate_game_string(game))
+    print(game.evaluate_game_string(game))
