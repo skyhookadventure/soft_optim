@@ -45,12 +45,11 @@ def empirical_error_bound(
     
 
 def get_proxy_value_cutoff(error_bound: float, number_samples: int) -> float:
-    """Get the proxy value cutoff (q)
+    """Quantilizer q-value cutoff
     
-    Get the cut-off such that sampling from prior policies above this cut-off
-    will result in achieving the highest expected reward possible, whilst
-    limiting the probability (to epsilon) that the model hasn't over-fitted to
-    the training data.
+    Get the q-value cut-off point, such that by randomly selecting from the top q% of
+    prior policies (as measured by proxy reward), we maximize the lower bound of
+    the true reward.
 
     Args:
         error_bound: Empirically calculated error bound, i.e. the bound
