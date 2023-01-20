@@ -233,6 +233,7 @@ class TicTacToeGame:
 
         turn = 0
         final_outcome = 0
+        final_turn = 0
 
         for board_string in board_strings:
             outcome, valid = self.add_state(board_string)
@@ -241,23 +242,25 @@ class TicTacToeGame:
             # If the game is won, return score based on winner
             if outcome and not final_outcome:
                 final_outcome = outcome
+                final_turn = turn
 
             if not valid:
                 return False, 0, turn
 
+        turn = turn if (final_turn == 0) else final_turn
+
         return True, final_outcome, turn
 
-    def evaluate_game_string(self,
-            game_string:str,
-            ) -> int:
+    def evaluate_game_string(self, game_string:str) -> int:
         valid, outcome, turn = self.validate_game_string(game_string)
+        print( valid, outcome, turn )
 
         # If the game is not valid, return -1
         if not valid:
             return 0.0
 
         if not outcome:
-            return 0.6
+            return 0.5
 
         # Extra rules to better differentiate possible wins
         reward_delta = 0.05 * ( 9-turn )
@@ -271,6 +274,19 @@ class TicTacToeGame:
             return 0.2 - reward_delta # [ 0.0, 0.2]
 
         return 0.0
+
+    def extract_game_string(self, game_string: str) -> str:
+        """ Extract the game string from a full game string
+
+        Args:
+            game_string (str): Full game string
+
+        Returns:
+            str: Game string
+        """
+        game_string_after_start = game_string.split("Let's play Tic Tac Toe:\n")[1]
+        game_string_before_end  = game_string_after_start.split("\n<|endoftext|>")[0]
+        return game_string_before_end
 
 def generate_random_game():
     b = TicTacToeBoard()
@@ -299,8 +315,10 @@ def generate_dataset(number_games: int) -> List[str]:
 if __name__ == "__main__":
     # TEST
     # Generate a game
-    game = generate_random_game()
-    print(game)
+    game_string = generate_random_game()
+    print(game_string)
 
     # Evaluate the game
-    print(evaluate_game_string(game))
+    g = TicTacToeGame()
+    game_string = g.extract_game_string(game_string)
+    print("%.2f" % g.evaluate_game_string(game_string))
