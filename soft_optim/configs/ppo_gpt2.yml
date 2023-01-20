@@ -50,6 +50,8 @@ method:
   ref_mean: null
   ref_std: null
   cliprange_reward: 10
+  # HuggingFace Generate Parameters
+  # https://huggingface.co/docs/transformers/v4.25.1/en/main_classes/text_generation#transformers.GenerationMixin.generate
   gen_kwargs:
     max_new_tokens: 130
     top_k: 0
