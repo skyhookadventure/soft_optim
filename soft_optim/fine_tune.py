@@ -46,8 +46,8 @@ def fine_tune(
     """
     # Create tokenized datasets (train and eval)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    train_dataset = create_dataset(tokenizer, 5000)
-    eval_dataset = create_dataset(tokenizer, 50)
+    train_dataset = create_dataset(tokenizer, 100)
+    eval_dataset = create_dataset(tokenizer, 10)
    
     # Initialise Weights & Biases
     if log_weights_and_biases:

@@ -1,6 +1,5 @@
-from pathlib import Path
 
-import pytest
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from soft_optim.fine_tune import (create_dataset, fine_tune, infer_game,
@@ -30,6 +29,10 @@ class TestCreateDataset:
 class TestCheckModelOutputsValidGame:
     
     def test_fine_tuned_gpt(self):
+        # Don't run if CUDA isn't available
+        if not torch.cuda.is_available():
+            return
+        
         # Run the model if it hasn't already been run
         if not valid_games_fine_tuned_checkpoint.exists():
             fine_tune(log_weights_and_biases=False)

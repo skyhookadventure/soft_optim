@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import trlx
 from game import TicTacToeGame
@@ -12,8 +12,8 @@ from soft_optim.fine_tune import valid_games_fine_tuned_checkpoint
 
 def proxy_reward(
     samples: List[str], 
-    prompts: List[str] = None, 
-    outputs: List[str] = None
+    _prompts: Optional[List[str]] = None, 
+    _outputs: Optional[List[str]] = None
     ) -> List[float]:
     """Proxy reward
     
@@ -36,8 +36,8 @@ def proxy_reward(
 
 def metrics(
     samples: List[str], 
-    prompts: List[str] = None, 
-    outputs: List[str] = None
+    _prompts: Optional[List[str]] = None, 
+    _outputs: Optional[List[str]] = None
     ) -> Dict[str, List[float]]:
     """Metrics
     
