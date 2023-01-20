@@ -11,7 +11,7 @@ def empirical_error_bound(
     
     Calculates the error bound such that for further samples, there is at most a
     small (epsilon) probability that the expected true reward would be less than the
-    proxy reward minus the bound. This gives us a worst-case confidence
+    mean proxy reward minus the bound. This gives us a worst-case confidence
     interval, when we don't know how the errors are distributed.
     
     Uses Hoeffding's inequality to calculate the lower error bound
