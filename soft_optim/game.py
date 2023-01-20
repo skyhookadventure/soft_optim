@@ -256,11 +256,19 @@ class TicTacToeGame:
         if not valid:
             return 0.0
 
+        if not outcome:
+            return 0.6
+
+        # Extra rules to better differentiate possible wins
+        reward_delta = 0.05 * ( 9-turn )
+        if turn <= 5:
+            reward_delta = 0.2
+
         # If the game is won, return score based on winner
-        if outcome == self.board.x:
-            return 1.0
         if outcome == self.board.o:
-            return 0.0
+            return 0.8 + reward_delta # [ 0.8, 1.0]
+        if outcome == self.board.x:
+            return 0.2 - reward_delta # [ 0.0, 0.2]
 
         return 0.0
 
