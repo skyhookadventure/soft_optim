@@ -17,9 +17,12 @@ if __name__ == "__main__":
         return rewards
 
     tokenizer = AutoTokenizer.from_pretrained('gpt2')
-
+    tokenizer.eos_token = "<|endoftext|>"
+    
     config_path = Path(__file__).parent / "configs/ppo_gpt2.yml"
     config = TRLConfig.load_yaml(config_path)
+    config.method.gen_kwargs["eos_token_id"] = int(tokenizer.encode(tokenizer.eos_token)[0])
+    
 
     # collect a tictactoe generator model that was trained with fine_tune.py
     model_path = valid_games_fine_tuned_checkpoint
@@ -39,3 +42,4 @@ if __name__ == "__main__":
 
     fine_tuned_model_path = Path(__file__).parent / ".checkpoints" / "fine_tuned_model"
     trainer.save(fine_tuned_model_path)
+    
