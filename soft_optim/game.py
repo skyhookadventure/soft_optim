@@ -231,24 +231,26 @@ class TicTacToeGame:
         # split game string into board states
         board_strings = game_string.split("\n\n")[1:]
 
+        turn = 0
         final_outcome = 0
 
         for board_string in board_strings:
             outcome, valid = self.add_state(board_string)
+            turn += 1
 
             # If the game is won, return score based on winner
             if outcome and not final_outcome:
                 final_outcome = outcome
 
             if not valid:
-                return 0, False
+                return False, 0, turn
 
-        return final_outcome, True
+        return True, final_outcome, turn
 
     def evaluate_game_string(self,
             game_string:str,
             ) -> int:
-        outcome, valid = self.validate_game_string(game_string)
+        valid, outcome, turn = self.validate_game_string(game_string)
 
         # If the game is not valid, return -1
         if not valid:

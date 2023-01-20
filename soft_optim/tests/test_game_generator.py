@@ -115,7 +115,7 @@ class TestTicTacToeGameValidGames:
 
     def test_parses_valid_game(self):
         game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
-        outcome, valid = game.validate_game_string(self.mock_game_x_win_str)
+        valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_str)
         assert outcome == game.board.x
         assert valid
 
@@ -165,60 +165,60 @@ class TestTicTacToeGameInvalidGames:
 
     def test_game_invalid_wrong_player_place_many(self):
         game = TicTacToeGame(check_valid_move=False, check_valid_state=False)
-        outcome, valid = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
+        valid, outcome, turn = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
         assert valid and game.board.o == outcome
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=False)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
+            valid, outcome, turn = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
             assert valid
 
         game = TicTacToeGame(check_valid_move=False, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
+            valid, outcome, turn = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
             assert valid
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
+            valid, outcome, turn = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
             assert valid
 
     def test_game_invalid_wrong_player(self):
         game = TicTacToeGame(check_valid_move=False, check_valid_state=False)
-        outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
+        valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
         assert valid and game.board.x == outcome
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=False)
-        outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
+        valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
         assert valid and game.board.x == outcome
 
         game = TicTacToeGame(check_valid_move=False, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
+            valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
             assert valid
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
+            valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
             assert valid
 
     def test_game_invalid_place_many(self):
         game = TicTacToeGame(check_valid_move=False, check_valid_state=False)
-        outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
+        valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
         assert valid and game.board.x == outcome
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=False)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
+            valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
             assert valid and game.board.x == outcome
 
         # should return true??
         game = TicTacToeGame(check_valid_move=False, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
+            valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
             assert valid
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
+            valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
             assert valid
