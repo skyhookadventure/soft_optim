@@ -231,36 +231,61 @@ class TicTacToeGame:
         # split game string into board states
         board_strings = game_string.split("\n\n")[1:]
 
+        turn = 0
         final_outcome = 0
+        final_turn = 0
 
         for board_string in board_strings:
             outcome, valid = self.add_state(board_string)
+            turn += 1
 
             # If the game is won, return score based on winner
             if outcome and not final_outcome:
                 final_outcome = outcome
+                final_turn = turn
 
             if not valid:
-                return 0, False
+                return False, 0, turn
 
-        return final_outcome, True
+        turn = turn if (final_turn == 0) else final_turn
 
-    def evaluate_game_string(self,
-            game_string:str,
-            ) -> float:
-        outcome, valid = self.validate_game_string(game_string)
+        return True, final_outcome, turn
+
+    def evaluate_game_string(self, game_string:str) -> float:
+        valid, outcome, turn = self.validate_game_string(game_string)
 
         # If the game is not valid, return -1
         if not valid:
             return 0.0
 
+        if not outcome:
+            return 0.5
+
+        # Extra rules to better differentiate possible wins
+        reward_delta = 0.05 * ( 9-turn )
+        if turn <= 5:
+            reward_delta = 0.2
+
         # If the game is won, return score based on winner
-        if outcome == self.board.x:
-            return 1.0
         if outcome == self.board.o:
-            return 0.0
+            return 0.8 + reward_delta # [ 0.8, 1.0]
+        if outcome == self.board.x:
+            return 0.2 - reward_delta # [ 0.0, 0.2]
 
         return 0.0
+
+    def extract_game_string(self, game_string: str) -> str:
+        """ Extract the game string from a full game string
+
+        Args:
+            game_string (str): Full game string
+
+        Returns:
+            str: Game string
+        """
+        game_string_after_start = game_string.split("Let's play Tic Tac Toe:\n")[1]
+        game_string_before_end  = game_string_after_start.split("\n<|endoftext|>")[0]
+        return game_string_before_end
 
 def generate_random_game():
     b = TicTacToeBoard()
@@ -289,8 +314,10 @@ def generate_dataset(number_games: int) -> List[str]:
 if __name__ == "__main__":
     # TEST
     # Generate a game
-    game = generate_random_game()
-    print(game)
+    game_string = generate_random_game()
+    print(game_string)
 
     # Evaluate the game
-    print(game.evaluate_game_string(game))
+    g = TicTacToeGame()
+    game_string = g.extract_game_string(game_string)
+    print("%.2f" % g.evaluate_game_string(game_string))
