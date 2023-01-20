@@ -1,10 +1,15 @@
 from typing import List
+
 import numpy as np
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
 from soft_optim.fine_tune import infer_game
+from soft_optim.game import TicTacToeGame
+
 
 def empirical_error_bound(
-    proxy_reward: np.array,  
-    human_evaluated_reward: np.array,
+    proxy_reward: np.ndarray,  
+    human_evaluated_reward: np.ndarray,
     epsilon: float = 0.001
     ) -> float:
     """Empirical error bound calculation
@@ -44,7 +49,12 @@ def empirical_error_bound(
     return expected_difference_rewards + np.sqrt(-np.log(epsilon) / (2 * number_samples))
     
 
-def get_proxy_value_cutoff(error_bound: float, number_samples: int) -> float:
+def get_proxy_value_cutoff(
+    error_bound: float, 
+    number_samples: int,
+    model: AutoModelForCausalLM, 
+    tokenizer: AutoTokenizer
+    ) -> float:
     """Quantilizer q-value cutoff
     
     Get the q-value cut-off point, such that by randomly selecting from the top q% of
@@ -65,18 +75,19 @@ def get_proxy_value_cutoff(error_bound: float, number_samples: int) -> float:
     
     # Generate new samples
     for _game in range(number_samples):
-        game_text: str = infer_game()
-        game = Game(game_text)
-        proxy_reward = game.get_proxy_reward()
+        game_text: str = infer_game(model, tokenizer)
+        game = TicTacToeGame()
+        proxy_reward = game.evaluate_game_string(game_text)
         proxy_rewards.append(proxy_reward)
     
     proxy_rewards_ordered = sorted(proxy_rewards)
     
     # Estimate the q-value (cutoff for the proxy reward)
-    lower_bounds = []
+    lower_bounds: List[float] = []
+    
     for i in range(0, len(proxy_rewards)):
         q = (len(proxy_rewards) - i) / len(proxy_rewards)
-        estimated_policy_distribution_lower_bound: float = np.mean(proxy_rewards_ordered[i:]) - 1/q * error_bound
+        estimated_policy_distribution_lower_bound: float = float(np.mean(proxy_rewards_ordered[i:]) - 1/q * error_bound)
         lower_bounds.append(estimated_policy_distribution_lower_bound)
         
     estimated_lower_bound = np.max(lower_bounds)

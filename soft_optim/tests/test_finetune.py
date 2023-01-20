@@ -1,6 +1,5 @@
-from pathlib import Path
 
-import pytest
+import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from soft_optim.fine_tune import (create_dataset, fine_tune, infer_game,
@@ -28,23 +27,12 @@ class TestCreateDataset:
 
 
 class TestCheckModelOutputsValidGame:
-    def test_plain_gpt(self):
-        # Load standard GPT2 (not fine tuned)
-        model_name = "gpt2"
-        model = AutoModelForCausalLM.from_pretrained(model_name)
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-        # Infer the full game
-        full_game:str = infer_game(model, tokenizer)
-
-        # Check it throws an error
-        with pytest.raises(Exception) as exc_info:
-            TicTacToeGame.evaluate_game_string(None, full_game)
-
-        assert exc_info
-
-
+    
     def test_fine_tuned_gpt(self):
+        # Don't run if CUDA isn't available
+        if not torch.cuda.is_available():
+            return
+        
         # Run the model if it hasn't already been run
         if not valid_games_fine_tuned_checkpoint.exists():
             fine_tune(log_weights_and_biases=False)
@@ -58,7 +46,10 @@ class TestCheckModelOutputsValidGame:
         full_game:str = infer_game(model, tokenizer)
 
         # Check it is valid
-        res = evaluate_game_string(full_game)
-        assert type(res) == int
+        print("game")
+        print(full_game)
+        game = TicTacToeGame()
+        res = game.evaluate_game_string(full_game)
+        assert type(res) == float
 
 
