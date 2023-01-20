@@ -1,18 +1,21 @@
 # Personal git config settings
-if [ -z "$1" ]
+if [ "$1" ]
 then
   if [ $1 = '-j' ]
   then
+    echo "Setting git config to Jeremy Gillen"
     git config --global user.name "Jeremy Gillen"
     git config --global user.email "jez.gillen@gmail.com"
   fi
   if [ $1 = '-n' ]
   then
+    echo "Setting git config to Nicky Pochinkov"
     git config --global user.name "Nicky Pochinkov"
     git config --global user.email "work@nicky.pro"
   fi
   if [ $1 = '-a' ]
   then
+    echo "Setting git config to Alan Cooney"
     git config --global user.name "Alan Cooney"
     git config --global user.email "alancooney@gmail.com"
   fi
