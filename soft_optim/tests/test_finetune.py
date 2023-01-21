@@ -35,14 +35,13 @@ class TestCheckModelOutputsValidGame:
         tokenizer = AutoTokenizer.from_pretrained(model_name)
 
         # Infer the full game
-        full_game:str = infer_game(model, tokenizer)
+        full_game: str = infer_game(model, tokenizer)
 
         # Check it throws an error
         with pytest.raises(Exception) as exc_info:
             TicTacToeGame.evaluate_game_string(None, full_game)
 
         assert exc_info
-
 
     def test_fine_tuned_gpt(self):
         # Run the model if it hasn't already been run
@@ -52,13 +51,12 @@ class TestCheckModelOutputsValidGame:
         # Load the fine-tuned model
         model_name = "gpt2"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(valid_games_fine_tuned_checkpoint)
+        model = AutoModelForCausalLM.from_pretrained(
+            valid_games_fine_tuned_checkpoint)
 
         # Infer the game
-        full_game:str = infer_game(model, tokenizer)
+        full_game: str = infer_game(model, tokenizer)
 
         # Check it is valid
         res = evaluate_game_string(full_game)
         assert type(res) == int
-
-

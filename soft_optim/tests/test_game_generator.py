@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from soft_optim.game import TicTacToeBoard, TicTacToeGame
+from soft_optim.game import Board, TicTacToeGame
 
 
 class TestTicTacToeBoardValidStates:
@@ -18,31 +18,32 @@ class TestTicTacToeBoardValidStates:
         - o -"""
 
     def test_initializes_empty_board(self):
-        board = TicTacToeBoard()
+        board = Board()
         expected = np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
         np.testing.assert_array_equal(
-            board.board_state,
+            board.board_squares,
             expected)
         assert board.check_win() == False
         assert board.validate_state()
 
     def test_parses_empty_board(self):
-        board = TicTacToeBoard(self.mock_empty_board_str)
+        board = Board(self.mock_empty_board_str)
         expected = np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
         np.testing.assert_array_equal(
-            board.board_state,
+            board.board_squares,
             expected)
         assert board.check_win() == False
         assert board.validate_state()
 
     def test_parses_x_won_board(self):
-        board = TicTacToeBoard(self.mock_x_won_board_str)
+        board = Board(self.mock_x_won_board_str)
         expected = np.array([[1, 1, 1], [2, 0, 2], [0, 2, 0]])
         np.testing.assert_array_equal(
-            board.board_state,
+            board.board_squares,
             expected)
         assert board.check_win() == board.x
         assert board.validate_state()
+
 
 class TestTicTacToeBoardInvalidStates:
     """Test invalid states for TicTacToeBoard"""
@@ -54,7 +55,7 @@ class TestTicTacToeBoardInvalidStates:
                 o - o
                 - o -
                 x x x"""
-            TicTacToeBoard(invalid_str)
+            Board(invalid_str)
 
     def test_parser_errors_too_many_columns(self):
         with pytest.raises(ValueError, match='Invalid'):
@@ -62,7 +63,7 @@ class TestTicTacToeBoardInvalidStates:
                 """x x x x
                 o - o
                 - o -"""
-            TicTacToeBoard(invalid_str)
+            Board(invalid_str)
 
     def test_parser_errors_invalid_row_character(self):
         with pytest.raises(ValueError, match='Invalid'):
@@ -70,21 +71,22 @@ class TestTicTacToeBoardInvalidStates:
                 """x x y
                 o - o
                 - o -"""
-            TicTacToeBoard(invalid_str)
+            Board(invalid_str)
 
     def test_parser_errors_x_won_cheat_board(self):
         mock_x_won_cheat_board_str: str = \
-        """x x x
+            """x x x
         - o -
         - - -"""
-        board = TicTacToeBoard(mock_x_won_cheat_board_str)
+        board = Board(mock_x_won_cheat_board_str)
         expected = np.array([[1, 1, 1], [0, 2, 0], [0, 0, 0]])
         np.testing.assert_array_equal(
-            board.board_state,
+            board.board_squares,
             expected)
         assert board.check_win() == board.x
         with pytest.raises(AssertionError):
             board.validate_state()
+
 
 class TestTicTacToeGameValidGames:
     """Test invalid games for TicTacToeGame"""
@@ -118,6 +120,7 @@ class TestTicTacToeGameValidGames:
         outcome, valid = game.validate_game_string(self.mock_game_x_win_str)
         assert outcome == game.board.x
         assert valid
+
 
 class TestTicTacToeGameInvalidGames:
     mock_game_o_win_invalid_wrong_player_place_many: str = \
@@ -165,60 +168,72 @@ class TestTicTacToeGameInvalidGames:
 
     def test_game_invalid_wrong_player_place_many(self):
         game = TicTacToeGame(check_valid_move=False, check_valid_state=False)
-        outcome, valid = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
+        outcome, valid = game.validate_game_string(
+            self.mock_game_o_win_invalid_wrong_player_place_many)
         assert valid and game.board.o == outcome
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=False)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
+            outcome, valid = game.validate_game_string(
+                self.mock_game_o_win_invalid_wrong_player_place_many)
             assert valid
 
         game = TicTacToeGame(check_valid_move=False, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
+            outcome, valid = game.validate_game_string(
+                self.mock_game_o_win_invalid_wrong_player_place_many)
             assert valid
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_o_win_invalid_wrong_player_place_many)
+            outcome, valid = game.validate_game_string(
+                self.mock_game_o_win_invalid_wrong_player_place_many)
             assert valid
 
     def test_game_invalid_wrong_player(self):
         game = TicTacToeGame(check_valid_move=False, check_valid_state=False)
-        outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
+        outcome, valid = game.validate_game_string(
+            self.mock_game_x_win_invalid_wrong_player)
         assert valid and game.board.x == outcome
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=False)
-        outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
+        outcome, valid = game.validate_game_string(
+            self.mock_game_x_win_invalid_wrong_player)
         assert valid and game.board.x == outcome
 
         game = TicTacToeGame(check_valid_move=False, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
+            outcome, valid = game.validate_game_string(
+                self.mock_game_x_win_invalid_wrong_player)
             assert valid
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_wrong_player)
+            outcome, valid = game.validate_game_string(
+                self.mock_game_x_win_invalid_wrong_player)
             assert valid
 
     def test_game_invalid_place_many(self):
         game = TicTacToeGame(check_valid_move=False, check_valid_state=False)
-        outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
+        outcome, valid = game.validate_game_string(
+            self.mock_game_x_win_invalid_place_many)
         assert valid and game.board.x == outcome
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=False)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
+            outcome, valid = game.validate_game_string(
+                self.mock_game_x_win_invalid_place_many)
             assert valid and game.board.x == outcome
 
         # should return true??
         game = TicTacToeGame(check_valid_move=False, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
+            outcome, valid = game.validate_game_string(
+                self.mock_game_x_win_invalid_place_many)
             assert valid
 
         game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
         with pytest.raises(AssertionError):
-            outcome, valid = game.validate_game_string(self.mock_game_x_win_invalid_place_many)
+            outcome, valid = game.validate_game_string(
+                self.mock_game_x_win_invalid_place_many)
             assert valid
