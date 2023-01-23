@@ -224,16 +224,25 @@ class TicTacToeGame:
         outcome = self.board.check_win()
         return outcome, True
 
-    def validate_game_string(self, game_string: str) -> Tuple[int, bool]:
+    def validate_game_string(self, game_string: str) -> Tuple[bool, int, int]:
+        """Validate the game string
+
+        Args:
+            game_string: Game string
+
+        Returns:
+            Tuple[bool, int, int]: Tuple containing isValid, the final outcome
+            and the turn.
+        """
         self.board = TicTacToeBoard()
         self.history = [self.board]
 
         # split game string into board states
         board_strings = game_string.split("\n\n")[1:]
 
-        turn = 0
-        final_outcome = 0
-        final_turn = 0
+        turn: int = 0
+        final_outcome: float = 0
+        final_turn: int = 0
 
         for board_string in board_strings:
             outcome, valid = self.add_state(board_string)
