@@ -5,11 +5,37 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from game import TicTacToeGame
 import soft_optim.quantilizer as quantilizer
 import numpy as np
-from typing import List
+from typing import List, Dict, Optional
 
 
 
 from soft_optim.fine_tune import valid_games_fine_tuned_checkpoint, infer_game
+
+def metrics(
+    samples: List[str],
+    prompts: Optional[List[str]] = None,
+    outputs: Optional[List[str]] = None
+) -> Dict[str, List[float]]:
+    """Metrics
+    Args:
+        samples: Batch of responses
+        prompts: Batch of prompts
+        outputs: Batch of outputs
+    Returns:
+        Dict[str, List[float]]: Dict of metrics, where the key is the metric
+        name and the value is a list of metric values (one for each item in the
+        batch).
+    """
+    true_rewards: List[float] = []
+    valid_games: List[float] = []
+
+    for s in samples:
+        g = TicTacToeGame(check_valid_move=True, check_valid_state=True)
+        true_rewards.append(g.evaluate_game_string(s))
+        isValid: bool = g.validate_game_string(s)[0]
+        valid_games.append(1.0 if isValid else 0.0)
+
+    return {"true_reward": true_rewards, "is_valid": valid_games}
 
 def no_soft_opt_experiment():
     def reward_fn(samples, prompts=None, outputs=None):
@@ -32,6 +58,8 @@ def no_soft_opt_experiment():
         reward_fn=reward_fn,
         config=config,
         prompts=["Let's play Tic Tac Toe:"]*config.train.batch_size,
+        metric_fn=metrics,
+
     )
 
     # test model output
@@ -73,11 +101,12 @@ def soft_opt_experiment():
     print(bound)
     print(cutoff)
 
-    #def loglikelihood_approx(rewards, cutoff):
-    #    return np.log10(1/(1+np.exp(-(rewards-cutoff))))
-
     def loglikelihood_approx(rewards, cutoff):
-        return np.log10((rewards > cutoff)+1e-8)
+        alpha = 30.0 #hyperparameter determining sharpness of cuttoff
+        return np.log10(1/(1+np.exp(-alpha*(rewards-cutoff))))
+
+    #def loglikelihood_approx(rewards, cutoff):
+    #    return np.log10((rewards > cutoff)+1e-8)
 
     def reward_fn(samples, prompts=None, outputs=None):
         rewards = []
@@ -99,6 +128,7 @@ def soft_opt_experiment():
         reward_fn=reward_fn,
         config=config,
         prompts=["Let's play Tic Tac Toe:"]*config.train.batch_size,
+        metric_fn=metrics,
     )
 
     # test model output

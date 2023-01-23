@@ -59,7 +59,7 @@ def fine_tune(
     training_args = TrainingArguments(
         output_dir=".checkpoints", 
         evaluation_strategy="epoch",
-        num_train_epochs=1,
+        num_train_epochs=5,
     )
     
     # Fine tune
