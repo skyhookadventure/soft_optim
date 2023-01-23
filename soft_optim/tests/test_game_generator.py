@@ -114,11 +114,29 @@ class TestTicTacToeGameValidGames:
         - x o"""
 
     def test_parses_valid_game(self):
+        game = TicTacToeGame(check_valid_move=False, check_valid_state=False)
+        valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_str)
+        assert valid
+        assert turn == 5
+        assert outcome == game.board.x
+
+        game = TicTacToeGame(check_valid_move=False, check_valid_state=True)
+        valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_str)
+        assert valid
+        assert turn == 5
+        assert outcome == game.board.x
+
+        game = TicTacToeGame(check_valid_move=True, check_valid_state=False)
+        valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_str)
+        assert valid
+        assert turn == 5
+        assert outcome == game.board.x
+
         game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
         valid, outcome, turn = game.validate_game_string(self.mock_game_x_win_str)
-        assert outcome == game.board.x
-        assert turn == 5
         assert valid
+        assert turn == 5
+        assert outcome == game.board.x
 
 class TestTicTacToeGameInvalidGames:
     mock_game_o_win_invalid_wrong_player_place_many: str = \

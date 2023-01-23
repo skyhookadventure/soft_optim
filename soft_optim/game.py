@@ -232,18 +232,16 @@ class TicTacToeGame:
         Returns:
             Tuple containing isValid, the final outcome and the turn.
         """
-        self.board = TicTacToeBoard()
-        self.history = [self.board]
+        self.history = []
 
         # split game string into board states
-        board_strings = game_string.split("\n\n")[1:]
+        board_strings = game_string.split("\n\n")
 
         # Make sure there are at least 2 board states
         if len(board_strings) == 0:
-            print('num boards:', len(board_strings))
             return False, 0, 0
 
-        turn: int = 0
+        turn: int = -1
         final_outcome: float = 0
         final_turn: int = 0
 
