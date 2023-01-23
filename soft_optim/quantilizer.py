@@ -39,14 +39,16 @@ def empirical_error_bound(
         reward would be lower than the proxy reward minus this bound, is at most
         epsilon).
     """
-    expected_difference_rewards: float = \
-        np.abs(proxy_reward - human_evaluated_reward).mean()
+    proxy_reward = np.array(proxy_reward)
+    human_evaluated_reward = np.array(human_evaluated_reward)
+    # Expected difference between the two rewards
+    expected_difference: float = np.abs(proxy_reward - human_evaluated_reward).mean()
     
     number_samples: int = len(proxy_reward)
     
     # The confidence bound gets smaller when epsilon is larger, and also gets
     # smaller when the number of samples is larger.
-    return expected_difference_rewards + np.sqrt(-np.log(epsilon) / (2 * number_samples))
+    return expected_difference + np.sqrt(-np.log(epsilon) / (2 * number_samples))
     
 
 def get_proxy_value_cutoff(
@@ -74,10 +76,10 @@ def get_proxy_value_cutoff(
     proxy_rewards: List[float] = []
     
     # Generate new samples
-    for _game in range(number_samples):
-        game_text: str = infer_game(model, tokenizer)
-        game = TicTacToeGame()
-        proxy_reward = game.evaluate_game_string(game_text)
+    g = TicTacToeGame(check_valid_move=False, check_valid_state=False)
+    game_text_list: List[str] = infer_game(model, tokenizer, num_samples=number_samples)
+    for game_string in game_text_list:
+        proxy_reward = g.evaluate_game_string(game_string)
         proxy_rewards.append(proxy_reward)
     
     proxy_rewards_ordered = sorted(proxy_rewards)
@@ -90,8 +92,7 @@ def get_proxy_value_cutoff(
         estimated_policy_distribution_lower_bound: float = float(np.mean(proxy_rewards_ordered[i:]) - 1/q * error_bound)
         lower_bounds.append(estimated_policy_distribution_lower_bound)
         
-    estimated_lower_bound = np.max(lower_bounds)
-    estimated_lower_bound_index = proxy_rewards_ordered.index(estimated_lower_bound)
+    estimated_lower_bound_index = np.argmax(lower_bounds)
     
     return proxy_rewards_ordered[estimated_lower_bound_index]
     

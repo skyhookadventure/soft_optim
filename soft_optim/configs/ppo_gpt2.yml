@@ -22,7 +22,7 @@ tokenizer:
 optimizer:
   name: "adamw"
   kwargs:
-    lr: 3.0e-6
+    lr: 1.0e-6
     betas: [0.9, 0.95]
     eps: 1.0e-8
     weight_decay: 1.0e-6
@@ -39,7 +39,7 @@ method:
   chunk_size: 64
   ppo_epochs: 6
   init_kl_coef: 0.0
-  target: null # keep KL coeff constant
+  target: 6
   horizon: 10000
   gamma: 1
   lam: 0.95

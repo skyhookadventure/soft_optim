@@ -218,11 +218,7 @@ class TicTacToeGame:
         except AssertionError as _err:
             return 0, False
 
-        except AssertionError as e:
-            print(e)
-            return 0, False
-
-        #  If valid, perform win checks
+        # If valid, perform win checks
         outcome = self.board.check_win()
         return outcome, True
 
