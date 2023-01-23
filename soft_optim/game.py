@@ -224,14 +224,14 @@ class TicTacToeGame:
         outcome = self.board.check_win()
         return outcome, True
 
-    def validate_game_string(self, game_string: str) -> Tuple[int, bool]:
+    def validate_game_string(self, game_string: str) -> Tuple[bool, int, int,]:
         self.board = TicTacToeBoard()
         self.history = [self.board]
 
         # split game string into board states
         board_strings = game_string.split("\n\n")[1:]
 
-        turn = 0
+        turn: int = 0
         final_outcome = 0
         final_turn = 0
 
