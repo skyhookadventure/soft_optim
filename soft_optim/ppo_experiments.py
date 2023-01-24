@@ -8,8 +8,8 @@ import numpy as np
 from typing import List, Dict, Optional
 
 
-
 from soft_optim.fine_tune import valid_games_fine_tuned_checkpoint, infer_game
+
 
 def metrics(
     samples: List[str],
@@ -37,6 +37,7 @@ def metrics(
 
     return {"true_reward": true_rewards, "is_valid": valid_games}
 
+
 def no_soft_opt_experiment():
     def reward_fn(samples, prompts=None, outputs=None):
         rewards = []
@@ -57,7 +58,7 @@ def no_soft_opt_experiment():
         str(model_path),
         reward_fn=reward_fn,
         config=config,
-        prompts=["Let's play Tic Tac Toe:"]*config.train.batch_size,
+        prompts=["Let's play Tic Tac Toe:"] * config.train.batch_size,
         metric_fn=metrics,
 
     )
@@ -68,7 +69,8 @@ def no_soft_opt_experiment():
     out = trainer.model.generate(tokens, max_length=1000, do_sample=True)
     print(tokenizer.decode(out[0], skip_special_tokens=True))
 
-    fine_tuned_model_path = Path(__file__).parent / ".checkpoints" / "no_soft_opt_model"
+    fine_tuned_model_path = Path(__file__).parent / \
+        ".checkpoints" / "no_soft_opt_model"
     trainer.save(fine_tuned_model_path)
 
 
@@ -81,8 +83,8 @@ def soft_opt_experiment():
 
     # get samples for gen error calculation
     samples = infer_game(model, tokenizer, num_samples=200)
-    proxy_rewards :List[float] = []
-    human_rewards :List[float] = []
+    proxy_rewards: List[float] = []
+    human_rewards: List[float] = []
     g_proxy = TicTacToeGame(check_valid_move=False, check_valid_state=False)
     g_human = TicTacToeGame()
     for s in samples:
@@ -91,21 +93,22 @@ def soft_opt_experiment():
     proxy_rewards_arr = np.array(proxy_rewards)
     human_rewards_arr = np.array(human_rewards)
 
-
     # get generalization error
-    eps = 0.05 # <5% chance of bound being exceeded
-    bound = quantilizer.empirical_error_bound(proxy_rewards_arr, human_rewards_arr, eps)
+    eps = 0.05  # <5% chance of bound being exceeded
+    bound = quantilizer.empirical_error_bound(
+        proxy_rewards_arr, human_rewards_arr, eps)
     # work out proxy reward cutoff
-    cutoff = quantilizer.get_proxy_value_cutoff(bound, len(samples), model, tokenizer)
+    cutoff = quantilizer.get_proxy_value_cutoff(
+        bound, len(samples), model, tokenizer)
 
     print(bound)
     print(cutoff)
 
     def loglikelihood_approx(rewards, cutoff):
-        alpha = 30.0 #hyperparameter determining sharpness of cuttoff
-        return np.log10(1/(1+np.exp(-alpha*(rewards-cutoff))))
+        alpha = 30.0  # hyperparameter determining sharpness of cuttoff
+        return np.log10(1 / (1 + np.exp(-alpha * (rewards - cutoff))))
 
-    #def loglikelihood_approx(rewards, cutoff):
+    # def loglikelihood_approx(rewards, cutoff):
     #    return np.log10((rewards > cutoff)+1e-8)
 
     def reward_fn(samples, prompts=None, outputs=None):
@@ -120,14 +123,14 @@ def soft_opt_experiment():
     config = TRLConfig.load_yaml(config_path)
 
     # custom config options for this experiment
-    config.method.target = None # Set to constant KL penalty
-    config.method.init_kl_coef = 1.0 # set weight of KL penalty to 1
+    config.method.target = None  # Set to constant KL penalty
+    config.method.init_kl_coef = 1.0  # set weight of KL penalty to 1
 
     trainer = trlx.train(
         str(model_path),
         reward_fn=reward_fn,
         config=config,
-        prompts=["Let's play Tic Tac Toe:"]*config.train.batch_size,
+        prompts=["Let's play Tic Tac Toe:"] * config.train.batch_size,
         metric_fn=metrics,
     )
 
@@ -137,11 +140,12 @@ def soft_opt_experiment():
     out = trainer.model.generate(tokens, max_length=1000, do_sample=True)
     print(tokenizer.decode(out[0], skip_special_tokens=True))
 
-    fine_tuned_model_path = Path(__file__).parent / ".checkpoints" / "soft_opt_model"
+    fine_tuned_model_path = Path(__file__).parent / \
+        ".checkpoints" / "soft_opt_model"
     trainer.save(fine_tuned_model_path)
 
 
 if __name__ == "__main__":
-    #no_soft_opt_experiment()
+    no_soft_opt_experiment()
 
-    soft_opt_experiment()
+    # soft_opt_experiment()
