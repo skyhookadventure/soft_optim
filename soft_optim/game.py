@@ -164,6 +164,7 @@ class TicTacToeGame:
         # Choose which validity checks to perform
         #  Check that the board state has only 'x', 'o', and '-' characters
         self.check_valid_string = True
+        self.extract_in_validation = True # If true, extract the game string
 
         #  Check that on state change, only one blank piece has changed
         self.check_valid_move = check_valid_move
@@ -235,7 +236,10 @@ class TicTacToeGame:
         self.history = []
 
         # split game string into board states
-        board_strings = game_string.split("\n\n")
+        raw_game_string = game_string
+        if self.extract_in_validation:
+            raw_game_string = self.extract_game_string(game_string)
+        board_strings = raw_game_string.split("\n\n")
 
         # Make sure there are at least 2 board states
         if len(board_strings) == 0:
@@ -293,8 +297,9 @@ class TicTacToeGame:
         Returns:
             str: Game string
         """
-        game_string_after_start = game_string.split(
-            "Let's play Tic Tac Toe:\n")[1]
+        game_string_start_split = game_string.split("Let's play Tic Tac Toe:\n")
+        game_string_after_start = game_string_start_split[1] if \
+            len(game_string_start_split) > 1 else game_string_start_split[0]
         game_string_before_end = game_string_after_start.split("\n<|endoftext|>")[
             0]
         raw_game_string = game_string_before_end.strip("\n")
