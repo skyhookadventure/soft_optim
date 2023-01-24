@@ -6,7 +6,8 @@ from game import TicTacToeGame
 import soft_optim.quantilizer as quantilizer
 import numpy as np
 from typing import List, Dict, Optional
-
+import wandb
+import traceback
 
 from soft_optim.fine_tune import valid_games_fine_tuned_checkpoint, infer_game
 
@@ -74,7 +75,13 @@ def no_soft_opt_experiment():
     trainer.save(fine_tuned_model_path)
 
 
-def soft_opt_experiment():
+def soft_opt_experiment(kl_setting=1.0, lr=1e-5, epochs=100):
+    wandb.init(
+        project="soft_optim",
+        name=f"mod-kl v1 soft_optim_experiment kl={kl_setting}, lr={lr}, epochs={epochs}",
+        reinit=True,)
+    # wandb.config.update(allow_val_change=True)
+
     # collect a tictactoe generator model that was trained with fine_tune.py
     model_path = valid_games_fine_tuned_checkpoint
     tokenizer = AutoTokenizer.from_pretrained('gpt2')
@@ -105,8 +112,8 @@ def soft_opt_experiment():
     print(cutoff)
 
     def loglikelihood_approx(rewards, cutoff):
-        alpha = 30.0  # hyperparameter determining sharpness of cuttoff
-        return np.log10(1 / (1 + np.exp(-alpha * (rewards - cutoff))))
+        alpha = 30.0  # hyperparameter determining sharpness of cutoff
+        return np.log(1 / (1 + np.exp(-alpha * (rewards - cutoff))))
 
     # def loglikelihood_approx(rewards, cutoff):
     #    return np.log10((rewards > cutoff)+1e-8)
@@ -124,7 +131,9 @@ def soft_opt_experiment():
 
     # custom config options for this experiment
     config.method.target = None  # Set to constant KL penalty
-    config.method.init_kl_coef = 1.0  # set weight of KL penalty to 1
+    config.method.init_kl_coef = kl_setting  # 1.0  # set weight of KL penalty to 1
+    config.train.epochs = epochs
+    config.optimizer.kwargs["lr"] = lr
 
     trainer = trlx.train(
         str(model_path),
@@ -143,9 +152,33 @@ def soft_opt_experiment():
     fine_tuned_model_path = Path(__file__).parent / \
         ".checkpoints" / "soft_opt_model"
     trainer.save(fine_tuned_model_path)
+    wandb.finish()
 
 
 if __name__ == "__main__":
-    no_soft_opt_experiment()
-
-    # soft_opt_experiment()
+    # no_soft_opt_experiment()
+    for kl in [0.001, 0.01, 0.1, 0.5, 1, 10]:
+        for lr in [1e-5, 1e-6, 1e-7, 1e-8, 1e-9]:
+            for epochs in [400]:
+                soft_opt_experiment(kl_setting=kl, lr=lr, epochs=epochs)
+    '''
+    for kl, lr, epochs in [
+            (0.3, 1e-6, 100),
+            (0.4, 1e-5, 100),
+            (0.4, 1e-5, 1000),
+            (0.4, 1e-4, 100),
+            (0.7, 1e-5, 100),
+            (0.7, 1e-5, 1000),
+            (0.7, 1e-6, 1000),
+            (1.0, 1e-6, 1000),
+            (1.0, 1e-7, 1000),
+            (0.1, 1e-5, 1000),
+            (0.1, 1e-6, 1000),
+            (0.1, 1e-7, 1000),
+    ]:
+        # try:
+        soft_opt_experiment(kl_setting=kl, lr=lr, epochs=epochs)
+        # except BaseException as e:
+        #    print(e)
+        #    print(traceback.format_exc())
+    '''
