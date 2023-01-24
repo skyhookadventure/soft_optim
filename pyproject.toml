@@ -10,10 +10,10 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-trlx = {git = "https://github.com/CarperAI/trlx"}
 numpy = "^1.23"
 numexpr = "^2.7.0"
 torch = "^1.13.0"
+trlx = {git = "https://github.com/CarperAI/trlx.git", rev = "refs/pull/218/merge"}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.2.1"
