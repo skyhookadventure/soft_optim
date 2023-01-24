@@ -297,7 +297,8 @@ class TicTacToeGame:
             "Let's play Tic Tac Toe:\n")[1]
         game_string_before_end = game_string_after_start.split("\n<|endoftext|>")[
             0]
-        return game_string_before_end
+        raw_game_string = game_string_before_end.strip("\n")
+        return raw_game_string
 
 
 def generate_random_game():
