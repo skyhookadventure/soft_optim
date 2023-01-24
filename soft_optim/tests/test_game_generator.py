@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from soft_optim.game import TicTacToeBoard, TicTacToeGame
+from soft_optim.game import TicTacToeBoard, TicTacToeGame, generate_random_game
 
 
 class TestTicTacToeBoardValidStates:
@@ -137,6 +137,14 @@ class TestTicTacToeGameValidGames:
         assert valid
         assert turn == 5
         assert outcome == game.board.x
+
+    def test_generated_game_valid(self):
+        game_string = generate_random_game()
+        game = TicTacToeGame(check_valid_move=True, check_valid_state=True)
+        raw_game_string = game.extract_game_string(game_string)
+        valid, outcome, turn = game.validate_game_string(raw_game_string)
+        assert valid
+
 
 class TestTicTacToeGameInvalidGames:
     mock_game_o_win_invalid_wrong_player_place_many: str = \

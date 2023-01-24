@@ -80,7 +80,7 @@ def soft_opt_experiment():
     model = AutoModelForCausalLM.from_pretrained(model_path).to('cuda')
 
     # get samples for gen error calculation
-    samples = infer_game(model, tokenizer, num_samples=200)    
+    samples = infer_game(model, tokenizer, num_samples=200)
     proxy_rewards :List[float] = []
     human_rewards :List[float] = []
     g_proxy = TicTacToeGame(check_valid_move=False, check_valid_state=False)
@@ -91,7 +91,7 @@ def soft_opt_experiment():
     proxy_rewards_arr = np.array(proxy_rewards)
     human_rewards_arr = np.array(human_rewards)
 
-    
+
     # get generalization error
     eps = 0.05 # <5% chance of bound being exceeded
     bound = quantilizer.empirical_error_bound(proxy_rewards_arr, human_rewards_arr, eps)
