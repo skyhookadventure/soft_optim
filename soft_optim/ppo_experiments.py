@@ -76,6 +76,7 @@ def no_soft_opt_experiment():
 
 
 def soft_opt_experiment(kl_setting=1.0, lr=1e-5, epochs=100):
+    wandb.login()
     wandb.init(
         project="soft_optim",
         name=f"mod-kl v1 soft_optim_experiment kl={kl_setting}, lr={lr}, epochs={epochs}",
