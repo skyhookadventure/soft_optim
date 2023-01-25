@@ -1,4 +1,3 @@
-import argparse
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
@@ -94,7 +93,7 @@ default_config = TRLConfig(
         seq_length=1024,
         epochs=300,
         total_steps=10000,
-        batch_size=128,
+        batch_size=12,
         checkpoint_interval=10000,
         eval_interval=100,
         pipeline="PromptPipeline",
@@ -189,11 +188,7 @@ def tune_function(
         # Metric to optimize (can be e.g. "returns/mean" or "metrics/is_valid")
         metric="metrics/true_reward",
         # https://docs.ray.io/en/latest/tune/faq.html#which-search-algorithm-scheduler-should-i-choose
-        search_alg=BayesOptSearch(
-            metric="metrics/true_reward",
-            mode="max"),
-        # Choose among schedulers:
-        # https://docs.ray.io/en/latest/tune/api_docs/schedulers.html
+        search_alg=BayesOptSearch(),
         # scheduler=ASHAScheduler(metric="objective", mode="max"))
         num_samples=-1,  # Keep sampling forever
     )
@@ -214,28 +209,10 @@ def tune_function(
 
 
 if __name__ == "__main__":
-    # Add command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--cpus",
-        "-c",
-        type=int,
-        default=1,
-        help="Number of CPUs to use per hyperparameter experiment"
-    )
-    parser.add_argument(
-        "--gpus",
-        "-g",
-        type=int,
-        default=1,
-        help="Number of GPUs to use per hyperparameter experiment"
-    )
-    args, _ = parser.parse_known_args()
-
     # Ray: Resources per experiment
     resources: Dict[str, float] = {
-        "cpu": args.cpus,
-        "gpu": args.gpus,
+        "cpu": 1,
+        "gpu": 1,
     }
 
     # Ray: Param config
