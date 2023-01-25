@@ -1,92 +1,33 @@
-import trlx
-from trlx.data.configs import TRLConfig
 from pathlib import Path
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from game import TicTacToeGame
-import soft_optim.quantilizer as quantilizer
+from typing import Any, Callable, Dict, List
+
 import numpy as np
-from typing import List, Dict, Optional
+import ray
+import trlx
+from game import TicTacToeGame
+from ray import tune
+from ray.tune.logger import CSVLoggerCallback
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from trlx.data.configs import TRLConfig, ModelConfig, TrainConfig, TokenizerConfig, OptimizerConfig, SchedulerConfig
+from trlx.ray_tune import get_param_space
+from trlx.trainer.nn.ppo_models import PPOConfig
+from ray.tune.search.bayesopt import BayesOptSearch
+
+import soft_optim.quantilizer as quantilizer
 import wandb
-import traceback
-
-from soft_optim.fine_tune import valid_games_fine_tuned_checkpoint, infer_game
-
-
-def metrics(
-    samples: List[str],
-    prompts: Optional[List[str]] = None,
-    outputs: Optional[List[str]] = None
-) -> Dict[str, List[float]]:
-    """Metrics
-    Args:
-        samples: Batch of responses
-        prompts: Batch of prompts
-        outputs: Batch of outputs
-    Returns:
-        Dict[str, List[float]]: Dict of metrics, where the key is the metric
-        name and the value is a list of metric values (one for each item in the
-        batch).
-    """
-    true_rewards: List[float] = []
-    valid_games: List[float] = []
-
-    for s in samples:
-        g = TicTacToeGame(check_valid_move=True, check_valid_state=True)
-        true_rewards.append(g.evaluate_game_string(s))
-        isValid: bool = g.validate_game_string(s)[0]
-        valid_games.append(1.0 if isValid else 0.0)
-
-    return {"true_reward": true_rewards, "is_valid": valid_games}
+from soft_optim.fine_tune import infer_game, valid_games_fine_tuned_checkpoint
+from soft_optim.metrics import metrics
 
 
-def no_soft_opt_experiment():
-    def reward_fn(samples, prompts=None, outputs=None):
-        rewards = []
-        g = TicTacToeGame(check_valid_move=False, check_valid_state=False)
-        for s in samples:
-            rewards.append(g.evaluate_game_string(s))
-        return rewards
-
-    tokenizer = AutoTokenizer.from_pretrained('gpt2')
-
-    config_path = Path(__file__).parent / "configs/ppo_gpt2.yml"
-    config = TRLConfig.load_yaml(config_path)
-
-    # collect a tictactoe generator model that was trained with fine_tune.py
-    model_path = valid_games_fine_tuned_checkpoint
-
-    trainer = trlx.train(
-        str(model_path),
-        reward_fn=reward_fn,
-        config=config,
-        prompts=["Let's play Tic Tac Toe:"] * config.train.batch_size,
-        metric_fn=metrics,
-
-    )
-
-    # test model output
-    game_start_text = "Let's play Tic Tac Toe:\n"
-    tokens = tokenizer.encode(game_start_text, return_tensors="pt").to('cuda')
-    out = trainer.model.generate(tokens, max_length=1000, do_sample=True)
-    print(tokenizer.decode(out[0], skip_special_tokens=True))
-
-    fine_tuned_model_path = Path(__file__).parent / \
-        ".checkpoints" / "no_soft_opt_model"
-    trainer.save(fine_tuned_model_path)
+wandb_project_name = "soft_optim"
 
 
-def soft_opt_experiment(kl_setting=1.0, lr=1e-5, epochs=100):
-    wandb.login()
-    wandb.init(
-        project="soft_optim",
-        name=f"mod-kl v1 soft_optim_experiment kl={kl_setting}, lr={lr}, epochs={epochs}",
-        reinit=True,)
-    # wandb.config.update(allow_val_change=True)
+def get_cutoff() -> float:
+    """Get the quantilizer cutoff"""
 
-    # collect a tictactoe generator model that was trained with fine_tune.py
+    # Model
     model_path = valid_games_fine_tuned_checkpoint
     tokenizer = AutoTokenizer.from_pretrained('gpt2')
-    # load model
     model = AutoModelForCausalLM.from_pretrained(model_path).to('cuda')
 
     # get samples for gen error calculation
@@ -109,15 +50,93 @@ def soft_opt_experiment(kl_setting=1.0, lr=1e-5, epochs=100):
     cutoff = quantilizer.get_proxy_value_cutoff(
         bound, len(samples), model, tokenizer)
 
-    print(bound)
-    print(cutoff)
+    return cutoff
 
-    def loglikelihood_approx(rewards, cutoff):
-        alpha = 30.0  # hyperparameter determining sharpness of cutoff
-        return np.log(1 / (1 + np.exp(-alpha * (rewards - cutoff))))
 
-    # def loglikelihood_approx(rewards, cutoff):
-    #    return np.log10((rewards > cutoff)+1e-8)
+def loglikelihood_approx(rewards, cutoff):
+    alpha = 30.0  # hyperparameter determining sharpness of cutoff
+    return np.log(1 / (1 + np.exp(-alpha * (rewards - cutoff))))
+    # return np.log10((rewards > cutoff)+1e-8)
+
+
+# TRLX PPO Method config
+# See https://arxiv.org/pdf/2006.05990.pdf for good defaults
+method_config = PPOConfig(
+    name="ppoconfig",
+    num_rollouts=64,
+    chunk_size=64,
+    ppo_epochs=6,
+    init_kl_coef=1,
+    target=None,  # type: ignore
+    horizon=10000,
+    gamma=1,
+    lam=0.95,
+    cliprange=0.2,
+    cliprange_value=0.2,
+    vf_coef=1,
+    scale_reward=False,  # type: ignore
+    ref_mean=None,
+    ref_std=None,
+    cliprange_reward=10,
+    # HuggingFace Generate Parameters
+    # https://huggingface.co/docs/transformers/v4.25.1/en/main_classes/text_generation#transformers.GenerationMixin.generate
+    gen_kwargs={
+        "max_new_tokens": 130,
+        "top_k": 0,
+        "top_p": 1.0,
+        "do_sample": True}
+)
+
+# TRLX config
+default_config = TRLConfig(
+    train=TrainConfig(
+        seq_length=1024,
+        epochs=300,
+        total_steps=10000,
+        batch_size=12,
+        checkpoint_interval=10000,
+        eval_interval=100,
+        pipeline="PromptPipeline",
+        orchestrator="PPOOrchestrator",
+        trainer="AcceleratePPOTrainer",
+        tracker="wandb"
+    ),
+    method=method_config,
+    model=ModelConfig(
+        model_path="lvwerra/gpt2-imdb",
+        num_layers_unfrozen=-1
+    ),
+    tokenizer=TokenizerConfig(
+        tokenizer_path="gpt2",
+        truncation_side="right"
+    ),
+    optimizer=OptimizerConfig(
+        name="adamw",
+        kwargs={
+            "lr": 1.0e-5,
+            "betas": [0.9, 0.95],
+            "eps": 1.0e-8,
+            "weight_decay": 1.0e-6,
+        }
+    ),
+    scheduler=SchedulerConfig(
+        "cosine_annealing",
+        kwargs={
+            "T_max": 10000,  # train.total_steps
+            "eta_min": 1.0e-4
+        }
+    )
+)
+
+
+def soft_opt_experiment(params: Dict[str, float]) -> None:
+    """Soft optimization experiment
+
+    Args:
+        params: Parameters from Ray
+    """
+    # Cutoff
+    cutoff = get_cutoff()
 
     def reward_fn(samples, prompts=None, outputs=None):
         rewards = []
@@ -127,59 +146,87 @@ def soft_opt_experiment(kl_setting=1.0, lr=1e-5, epochs=100):
         rewards_arr = np.array(rewards)
         return loglikelihood_approx(rewards_arr, cutoff)
 
-    config_path = Path(__file__).parent / "configs/ppo_gpt2.yml"
-    config = TRLConfig.load_yaml(config_path)
+    # Config
+    config = default_config
+    # config.method.init_kl_coef = params["init_kl_coef"]  # type: ignore
+    config.optimizer.kwargs["lr"] = params["lr"]  # type: ignore
 
-    # custom config options for this experiment
-    config.method.target = None  # Set to constant KL penalty
-    config.method.init_kl_coef = kl_setting  # 1.0  # set weight of KL penalty to 1
-    config.train.epochs = epochs
-    config.optimizer.kwargs["lr"] = lr
+    # Weights & Biases
+    wandb.init(
+        project=wandb_project_name,
+        config=params,
+        name="".join([f"{k}={v}" for k, v in params.items()]),
+        reinit=True,)
 
     trainer = trlx.train(
-        str(model_path),
+        str(valid_games_fine_tuned_checkpoint),
         reward_fn=reward_fn,
         config=config,
         prompts=["Let's play Tic Tac Toe:"] * config.train.batch_size,
         metric_fn=metrics,
     )
 
-    # test model output
-    game_start_text = "Let's play Tic Tac Toe:\n"
-    tokens = tokenizer.encode(game_start_text, return_tensors="pt").to('cuda')
-    out = trainer.model.generate(tokens, max_length=1000, do_sample=True)
-    print(tokenizer.decode(out[0], skip_special_tokens=True))
-
+    # Save checkpoints
     fine_tuned_model_path = Path(__file__).parent / \
         ".checkpoints" / "soft_opt_model"
     trainer.save(fine_tuned_model_path)
     wandb.finish()
 
 
+def tune_function(
+    train_function: Callable, param_space: Dict[str, Any], resources: Dict[str, float]
+) -> None:
+    """Tune a training function with Ray
+
+    Args:
+        train_function: Function to train - will receive param_space as a single parameter
+        param_space: Parameter space
+        resources: Resources per experiment
+    """
+    tune_config = tune.TuneConfig(
+        mode="max",
+        # Metric to optimize (can be e.g. "returns/mean" or "metrics/is_valid")
+        metric="metrics/true_reward",
+        # https://docs.ray.io/en/latest/tune/faq.html#which-search-algorithm-scheduler-should-i-choose
+        search_alg=BayesOptSearch(),
+        # scheduler=ASHAScheduler(metric="objective", mode="max"))
+        num_samples=-1,  # Keep sampling forever
+    )
+
+    tuner = tune.Tuner(
+        tune.with_resources(train_function, resources=resources),
+        param_space=param_space,
+        tune_config=tune_config,
+        run_config=ray.air.RunConfig(
+            local_dir="ray_results", callbacks=[CSVLoggerCallback()]
+        ),
+    )
+
+    results = tuner.fit()
+
+    print("Best hyper-parameters found were: ",
+          results.get_best_result().config)
+
+
 if __name__ == "__main__":
-    # no_soft_opt_experiment()
-    for kl in [0.001, 0.01, 0.1, 0.5, 1, 10]:
-        for lr in [1e-5, 1e-6, 1e-7, 1e-8, 1e-9]:
-            for epochs in [400]:
-                soft_opt_experiment(kl_setting=kl, lr=lr, epochs=epochs)
-    '''
-    for kl, lr, epochs in [
-            (0.3, 1e-6, 100),
-            (0.4, 1e-5, 100),
-            (0.4, 1e-5, 1000),
-            (0.4, 1e-4, 100),
-            (0.7, 1e-5, 100),
-            (0.7, 1e-5, 1000),
-            (0.7, 1e-6, 1000),
-            (1.0, 1e-6, 1000),
-            (1.0, 1e-7, 1000),
-            (0.1, 1e-5, 1000),
-            (0.1, 1e-6, 1000),
-            (0.1, 1e-7, 1000),
-    ]:
-        # try:
-        soft_opt_experiment(kl_setting=kl, lr=lr, epochs=epochs)
-        # except BaseException as e:
-        #    print(e)
-        #    print(traceback.format_exc())
-    '''
+    # Ray: Resources per experiment
+    resources: Dict[str, float] = {
+        "cpu": 1,
+        "gpu": 1,
+    }
+
+    # Ray: Param config
+    param_config: Dict = {
+        "lr": {
+            "strategy": "loguniform",
+            "values": [1e-9, 1e-5]
+        },
+    }
+
+    # Weights & Biases
+    wandb.login()
+
+    # Ray: Tune
+    param_space = get_param_space(param_config)
+    tune.register_trainable(wandb_project_name, soft_opt_experiment)
+    tune_function(soft_opt_experiment, param_space, resources)

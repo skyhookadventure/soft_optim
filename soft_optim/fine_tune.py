@@ -1,14 +1,17 @@
 from pathlib import Path
+from typing import List, Union
 
 from datasets import Dataset
-from transformers import (AutoModelForCausalLM, AutoTokenizer, Trainer,
-                          TrainingArguments)
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          PreTrainedTokenizer, PreTrainedTokenizerFast,
+                          Trainer, TrainingArguments)
 
 import wandb
-from soft_optim.game import generate_dataset, TicTacToeGame
-from typing import List
+from soft_optim.game import TicTacToeGame, generate_dataset
 
-def create_dataset(tokenizer: AutoTokenizer, number_games: int = 10) -> Dataset:
+
+def create_dataset(tokenizer: AutoTokenizer,
+                   number_games: int = 10) -> Dataset:
     """Create the dataset
 
     This is a collection of full game prompts (tokenized).
@@ -22,24 +25,32 @@ def create_dataset(tokenizer: AutoTokenizer, number_games: int = 10) -> Dataset:
     """
     # Create the dataset from a list of game strings
     list_of_game_strings = generate_dataset(number_games)
-    dataset = Dataset.from_dict({"text":list_of_game_strings})
+    dataset = Dataset.from_dict({"text": list_of_game_strings})
 
-    # Tokenize the text prompts (creates "input_ids" property for each dataset item)
-    dataset = dataset.map(lambda examples: tokenizer(examples["text"]), batched=True)
+    # Tokenize the text prompts (creates "input_ids" property for each dataset
+    # item)
+    dataset = dataset.map(
+        lambda examples: tokenizer(
+            examples["text"]),
+        batched=True)
 
     # Set the labels to be the same as the input IDs
-    dataset = dataset.map(lambda examples: {"labels": examples["input_ids"]}, batched=True)
+    dataset = dataset.map(
+        lambda examples: {
+            "labels": examples["input_ids"]},
+        batched=True)
 
     return dataset
 
 
-valid_games_fine_tuned_checkpoint = Path(__file__).parent.parent / ".checkpoints" / "fine_tuned_gpt2"
+valid_games_fine_tuned_checkpoint = Path(
+    __file__).parent.parent / ".checkpoints" / "fine_tuned_gpt2"
 
 
 def fine_tune(
     model_name: str = "gpt2",
     log_weights_and_biases: bool = False,
-    ) -> AutoModelForCausalLM:
+) -> AutoModelForCausalLM:
     """Fine tune a language model on the games dataset
 
     This is so that our model reliably outputs allowed game moves.
@@ -72,7 +83,6 @@ def fine_tune(
     )
     trainer.train()
 
-
     # print model output
     out = model.generate(max_length=1000, do_sample=True)
     print(tokenizer.decode(out[0], skip_special_tokens=True))
@@ -83,7 +93,8 @@ def fine_tune(
     return model
 
 
-def infer_game(model: AutoModelForCausalLM, tokenizer: AutoTokenizer, num_samples: int = 1) -> List[str]:
+def infer_game(model: AutoModelForCausalLM,
+               tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast], num_samples: int = 1) -> List[str]:
     """Infer a full game from just the start text
 
     Args:
@@ -96,7 +107,11 @@ def infer_game(model: AutoModelForCausalLM, tokenizer: AutoTokenizer, num_sample
     """
     n = num_samples
     game_start_text = "Let's play Tic Tac Toe:\n"
-    tokens = tokenizer([game_start_text]*n, return_tensors="pt").to(model.device)
+    tokens = tokenizer(
+        [game_start_text] *
+        n,
+        return_tensors="pt").to(
+        model.device)
     out = model.generate(**tokens, max_length=1000, do_sample=True)
     samples = tokenizer.batch_decode(out, skip_special_tokens=True)
 
@@ -108,5 +123,6 @@ def infer_game(model: AutoModelForCausalLM, tokenizer: AutoTokenizer, num_sample
 
     return stripped_samples
 
+
 if __name__ == "__main__":
-    fine_tune(log_weights_and_biases = True)
+    fine_tune(log_weights_and_biases=True)
