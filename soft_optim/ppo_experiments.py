@@ -169,13 +169,6 @@ def soft_opt_experiment(params: Dict[str, float]) -> None:
     config.train.batch_size = int(params["batch_size"])
     config.method.ppo_epochs = int(params["ppo_epochs"])  # type: ignore
 
-    # Weights & Biases
-    # wandb.init(
-    #     project=wandb_project_name,
-    #     config=params,
-    #     name="".join([f"{k}={v}" for k, v in params.items()]),
-    #     reinit=True,)
-
     trainer = trlx.train(
         str(valid_games_fine_tuned_checkpoint),
         reward_fn=reward_fn,
@@ -217,7 +210,8 @@ def tune_function(
         metric_columns=[
             "metrics/true_reward",
             "returns/mean",
-            "metrics/is_valid"])
+            "metrics/is_valid"]
+    )
 
     tuner = tune.Tuner(
         tune.with_resources(train_function, resources=resources),
@@ -234,10 +228,7 @@ def tune_function(
         ),
     )
 
-    results = tuner.fit()
-
-    print("Best hyper-parameters found were: ",
-          results.get_best_result().config)
+    tuner.fit()
 
 
 if __name__ == "__main__":
@@ -253,10 +244,10 @@ if __name__ == "__main__":
     # below). Note if you add more they must also be set in the
     # soft_opt_experiment function
     param_space: Dict = {
-        "lr": tune.loguniform(1e-3, 1e-7),
+        "lr": tune.loguniform(1e-5, 1e-9),
         "gamma": tune.loguniform(0.95, 1.0),
         # Float to work with search (rounded later)
-        "batch_size": tune.loguniform(4, 8),
+        "batch_size": tune.loguniform(4, 128),
         "ppo_epochs": tune.loguniform(2, 16)
     }
 
