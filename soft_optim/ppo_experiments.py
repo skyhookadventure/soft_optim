@@ -10,14 +10,17 @@ from ray import tune
 from ray.tune.logger import CSVLoggerCallback
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from trlx.data.configs import TRLConfig, ModelConfig, TrainConfig, TokenizerConfig, OptimizerConfig, SchedulerConfig
-from trlx.data.method_configs import MethodConfig
 from trlx.ray_tune import get_param_space
 from trlx.trainer.nn.ppo_models import PPOConfig
+from ray.tune.search.bayesopt import BayesOptSearch
 
 import soft_optim.quantilizer as quantilizer
 import wandb
 from soft_optim.fine_tune import infer_game, valid_games_fine_tuned_checkpoint
 from soft_optim.metrics import metrics
+
+
+wandb_project_name = "soft_optim"
 
 
 def get_cutoff() -> float:
@@ -58,12 +61,13 @@ def loglikelihood_approx(rewards, cutoff):
 
 
 # TRLX PPO Method config
+# See https://arxiv.org/pdf/2006.05990.pdf for good defaults
 method_config = PPOConfig(
     name="ppoconfig",
     num_rollouts=64,
     chunk_size=64,
     ppo_epochs=6,
-    init_kl_coef=0.0,
+    init_kl_coef=1,
     target=None,  # type: ignore
     horizon=10000,
     gamma=1,
@@ -88,7 +92,7 @@ method_config = PPOConfig(
 default_config = TRLConfig(
     train=TrainConfig(
         seq_length=1024,
-        epochs=100,
+        epochs=300,
         total_steps=10000,
         batch_size=128,
         checkpoint_interval=10000,
@@ -132,12 +136,6 @@ def soft_opt_experiment(params: Dict[str, float]) -> None:
     Args:
         params: Parameters from Ray
     """
-    # Weights & Biases
-    wandb.init(
-        project="soft_optim",
-        # name=f"mod-kl v1 soft_optim_experiment kl={kl_setting}, lr={lr}, epochs={epochs}",
-        reinit=True,)
-
     # Cutoff
     cutoff = get_cutoff()
 
@@ -151,8 +149,15 @@ def soft_opt_experiment(params: Dict[str, float]) -> None:
 
     # Config
     config = default_config
-    config.method.init_kl_coef = params["init_kl_coef"]  # type: ignore
+    # config.method.init_kl_coef = params["init_kl_coef"]  # type: ignore
     config.optimizer.kwargs["lr"] = params["lr"]  # type: ignore
+
+    # Weights & Biases
+    wandb.init(
+        project=wandb_project_name,
+        config=params,
+        name="".join([f"{k}={v}" for k, v in params.items()]),
+        reinit=True,)
 
     trainer = trlx.train(
         str(valid_games_fine_tuned_checkpoint),
@@ -161,12 +166,6 @@ def soft_opt_experiment(params: Dict[str, float]) -> None:
         prompts=["Let's play Tic Tac Toe:"] * config.train.batch_size,
         metric_fn=metrics,
     )
-
-    # Test the model output
-    # game_start_text = "Let's play Tic Tac Toe:\n"
-    # tokens = tokenizer.encode(game_start_text, return_tensors="pt").to('cuda')
-    # out = trainer.model.generate(tokens, max_length=1000, do_sample=True)
-    # print(tokenizer.decode(out[0], skip_special_tokens=True))
 
     # Save checkpoints
     fine_tuned_model_path = Path(__file__).parent / \
@@ -187,10 +186,16 @@ def tune_function(
     """
     tune_config = tune.TuneConfig(
         mode="max",
-        metric="reward/mean",
-        # search_alg="random",
-        # scheduler="fifo",
-        num_samples=32,
+        # Metric to optimize (can be e.g. "returns/mean" or "metrics/is_valid")
+        metric="metrics/true_reward",
+        # https://docs.ray.io/en/latest/tune/faq.html#which-search-algorithm-scheduler-should-i-choose
+        search_alg=BayesOptSearch(
+            metric="metrics/true_reward",
+            mode="max"),
+        # Choose among schedulers:
+        # https://docs.ray.io/en/latest/tune/api_docs/schedulers.html
+        # scheduler=ASHAScheduler(metric="objective", mode="max"))
+        num_samples=-1,  # Keep sampling forever
     )
 
     tuner = tune.Tuner(
@@ -204,19 +209,6 @@ def tune_function(
 
     results = tuner.fit()
 
-    # project_name = tune_config.get("project_name", "sweep")
-    # log_trials(
-    #     tuner._local_tuner.get_experiment_checkpoint_dir(),
-    #     project_name,
-    # )
-    # create_report(
-    #     project_name,
-    #     param_space,
-    #     tune_config,
-    #     Path(tuner._local_tuner.get_experiment_checkpoint_dir()).stem,
-    #     results.get_best_result().config,
-    # )
-
     print("Best hyper-parameters found were: ",
           results.get_best_result().config)
 
@@ -225,10 +217,18 @@ if __name__ == "__main__":
     # Add command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--cpus", "-c", type=int, default=4, help="Number of CPUs to use per exp."
+        "--cpus",
+        "-c",
+        type=int,
+        default=1,
+        help="Number of CPUs to use per hyperparameter experiment"
     )
     parser.add_argument(
-        "--gpus", "-g", type=int, default=1, help="Number of GPUs to use per exp."
+        "--gpus",
+        "-g",
+        type=int,
+        default=1,
+        help="Number of GPUs to use per hyperparameter experiment"
     )
     args, _ = parser.parse_known_args()
 
@@ -244,13 +244,12 @@ if __name__ == "__main__":
             "strategy": "loguniform",
             "values": [1e-9, 1e-5]
         },
-        "init_kl_coef": {
-            "strategy": "loguniform",
-            "values": [0.001, 10]
-        },
     }
+
+    # Weights & Biases
+    wandb.login()
 
     # Ray: Tune
     param_space = get_param_space(param_config)
-    tune.register_trainable("ppo_experiments", soft_opt_experiment)
+    tune.register_trainable(wandb_project_name, soft_opt_experiment)
     tune_function(soft_opt_experiment, param_space, resources)
