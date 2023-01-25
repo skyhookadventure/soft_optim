@@ -12,6 +12,8 @@ from trlx.data.configs import TRLConfig, ModelConfig, TrainConfig, TokenizerConf
 from trlx.ray_tune import get_param_space
 from trlx.trainer.nn.ppo_models import PPOConfig
 from ray.tune.search.bayesopt import BayesOptSearch
+from ray.tune import CLIReporter
+from ray.air.integrations.wandb import WandbLoggerCallback
 
 import soft_optim.quantilizer as quantilizer
 import wandb
@@ -65,14 +67,24 @@ method_config = PPOConfig(
     name="ppoconfig",
     num_rollouts=64,
     chunk_size=64,
+    # PPO Epochs (running the same batch multiple times in a row)
+    # "Go over experience multiple times."
     ppo_epochs=6,
     init_kl_coef=1,
     target=None,  # type: ignore
-    horizon=10000,
-    gamma=1,
-    lam=0.95,
-    cliprange=0.2,
-    cliprange_value=0.2,
+    horizon=10000,  # Not used
+    # Discount factor
+    # "Discount factor γ is one of the most important hyperparameters and should
+    # be tuned per environment (start with γ = 0.99)"
+    gamma=1,  # 1 probably makes most sense given our reward function only runs at the end
+    # GAE Lam
+    # "Use GAE with λ = 0.9 but neither Huber loss nor PPO-style value loss clipping"
+    lam=0.9,
+    cliprange_value=0.2,  # Default was 0.2
+    # Clipping loss
+    # Start with the clipping threshold set to 0.25 but also try lower and
+    # higher values if possible. [0.1, 0.5]
+    cliprange=0.25,  # Default was 0.2
     vf_coef=1,
     scale_reward=False,  # type: ignore
     ref_mean=None,
@@ -99,7 +111,7 @@ default_config = TRLConfig(
         pipeline="PromptPipeline",
         orchestrator="PPOOrchestrator",
         trainer="AcceleratePPOTrainer",
-        tracker="wandb"
+        # tracker="wandb"
     ),
     method=method_config,
     model=ModelConfig(
@@ -112,8 +124,11 @@ default_config = TRLConfig(
     ),
     optimizer=OptimizerConfig(
         name="adamw",
+        # "Use Adam [8] optimizer with momentum β1 = 0.9 and a tuned learning
+        # rate (0.0003 is a safe default). Linearly decaying the learning rate
+        # may slightly improve performance but is of secondary importance"
         kwargs={
-            "lr": 1.0e-5,
+            "lr": 3.0e-4,
             "betas": [0.9, 0.95],
             "eps": 1.0e-8,
             "weight_decay": 1.0e-6,
@@ -148,15 +163,18 @@ def soft_opt_experiment(params: Dict[str, float]) -> None:
 
     # Config
     config = default_config
-    # config.method.init_kl_coef = params["init_kl_coef"]  # type: ignore
+    config.method.gamma = params["gamma"]  # type: ignore
     config.optimizer.kwargs["lr"] = params["lr"]  # type: ignore
+    # Float from tuner so must be rounded
+    config.train.batch_size = int(params["batch_size"])
+    config.method.ppo_epochs = int(params["ppo_epochs"])  # type: ignore
 
     # Weights & Biases
-    wandb.init(
-        project=wandb_project_name,
-        config=params,
-        name="".join([f"{k}={v}" for k, v in params.items()]),
-        reinit=True,)
+    # wandb.init(
+    #     project=wandb_project_name,
+    #     config=params,
+    #     name="".join([f"{k}={v}" for k, v in params.items()]),
+    #     reinit=True,)
 
     trainer = trlx.train(
         str(valid_games_fine_tuned_checkpoint),
@@ -170,7 +188,6 @@ def soft_opt_experiment(params: Dict[str, float]) -> None:
     fine_tuned_model_path = Path(__file__).parent / \
         ".checkpoints" / "soft_opt_model"
     trainer.save(fine_tuned_model_path)
-    wandb.finish()
 
 
 def tune_function(
@@ -191,14 +208,29 @@ def tune_function(
         search_alg=BayesOptSearch(),
         # scheduler=ASHAScheduler(metric="objective", mode="max"))
         num_samples=-1,  # Keep sampling forever
+        max_concurrent_trials=8
     )
+
+    # Set the metrics to report to the CLI
+    reporter = CLIReporter(
+        max_progress_rows=10,
+        metric_columns=[
+            "metrics/true_reward",
+            "returns/mean",
+            "metrics/is_valid"])
 
     tuner = tune.Tuner(
         tune.with_resources(train_function, resources=resources),
         param_space=param_space,
         tune_config=tune_config,
         run_config=ray.air.RunConfig(
-            local_dir="ray_results", callbacks=[CSVLoggerCallback()]
+            local_dir="ray_results",  # Needed for wandb
+            callbacks=[
+                # CSVLoggerCallback(),
+                WandbLoggerCallback(project=wandb_project_name)
+            ],
+            # log_to_file=True, # Needed
+            progress_reporter=reporter,
         ),
     )
 
@@ -209,24 +241,28 @@ def tune_function(
 
 
 if __name__ == "__main__":
-    # Ray: Resources per experiment
+    # Ray: Resources per hyper parameter experiment (i.e. if you want 8
+    # runs, you need 8x this number of resources)
     resources: Dict[str, float] = {
         "cpu": 1,
         "gpu": 1,
     }
 
     # Ray: Param config
-    param_config: Dict = {
-        "lr": {
-            "strategy": "loguniform",
-            "values": [1e-9, 1e-5]
-        },
+    # Good choices from https://arxiv.org/pdf/2006.05990.pdf (in comments
+    # below). Note if you add more they must also be set in the
+    # soft_opt_experiment function
+    param_space: Dict = {
+        "lr": tune.loguniform(1e-3, 1e-7),
+        "gamma": tune.loguniform(0.95, 1.0),
+        # Float to work with search (rounded later)
+        "batch_size": tune.loguniform(4, 8),
+        "ppo_epochs": tune.loguniform(2, 16)
     }
 
     # Weights & Biases
     wandb.login()
 
     # Ray: Tune
-    param_space = get_param_space(param_config)
     tune.register_trainable(wandb_project_name, soft_opt_experiment)
     tune_function(soft_opt_experiment, param_space, resources)
