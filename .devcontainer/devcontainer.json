@@ -29,5 +29,5 @@
         }
     },
     "containerUser": "user",
-    "postCreateCommand": "sh ./setup.sh"
+    "postCreateCommand": "poetry config virtualenvs.in-project true && poetry install"
 }
