@@ -103,7 +103,7 @@ default_config = TRLConfig(
         seq_length=1024,
         epochs=300,
         total_steps=10000,
-        batch_size=16,
+        batch_size=128,
         checkpoint_interval=10000,
         eval_interval=100,
         pipeline="PromptPipeline",
@@ -195,8 +195,9 @@ def tune_function(
         mode="max",
         # Metric to optimize (can be e.g. "returns/mean" or "metrics/is_valid")
         metric="metrics/true_reward",
+        # Use Bayes Search if params are being tuned
         # https://docs.ray.io/en/latest/tune/faq.html#which-search-algorithm-scheduler-should-i-choose
-        search_alg=BayesOptSearch(),
+        search_alg=BayesOptSearch() if len(param_space) >= 1 else None,
         # scheduler=ASHAScheduler(metric="objective", mode="max"))
         num_samples=-1,  # Keep sampling forever
         max_concurrent_trials=8
