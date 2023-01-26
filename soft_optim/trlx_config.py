@@ -120,4 +120,4 @@ def default_config_override(params: Dict[str, Any]) -> TRLConfig:
         else:
             deep_set(config, key, val)
 
-    return TRLConfig.from_dict({"tokenizer": tokenizer, **config})
+    return TRLConfig.from_dict({"tokenizer": tokenizer.__dict__, **config})
