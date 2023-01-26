@@ -1,8 +1,10 @@
+import random
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 import numpy as np
 import ray
+import torch
 import trlx
 import wandb
 from game import TicTacToeGame
@@ -142,6 +144,11 @@ def tune_function(
 
 
 if __name__ == "__main__":
+    # Set random seeds
+    torch.manual_seed(0)
+    np.random.seed(0)
+    random.seed(0)
+
     # Ray: Resources per hyper parameter experiment (i.e. if you want 8
     # runs, you need 8x this number of resources)
     resources: Dict[str, float] = {
