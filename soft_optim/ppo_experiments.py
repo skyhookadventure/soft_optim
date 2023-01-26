@@ -112,7 +112,7 @@ def tune_function(
         # https://docs.ray.io/en/latest/tune/faq.html#which-search-algorithm-scheduler-should-i-choose
         search_alg=BayesOptSearch() if len(param_space) >= 1 else None,
         # scheduler=ASHAScheduler(metric="objective", mode="max"))
-        num_samples=-1,  # Keep sampling forever
+        num_samples=1,  # Keep sampling forever
         max_concurrent_trials=8
     )
 

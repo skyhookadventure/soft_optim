@@ -49,7 +49,7 @@ def create_dataset(tokenizer: AutoTokenizer,
 
 
 valid_games_fine_tuned_checkpoint = Path(
-    __file__).parent.parent / "checkpoints" / "fine_tuned_gpt2"
+    __file__).parent / ".checkpoints" / "fine_tuned_gpt2"
 
 
 def fine_tune(
@@ -71,7 +71,6 @@ def fine_tune(
         wandb.init(project="soft_optim_fine_tune")
 
     training_args = TrainingArguments(
-        save_strategy="epoch",
         output_dir=".checkpoints",
         evaluation_strategy="epoch",
         num_train_epochs=1,
@@ -92,9 +91,6 @@ def fine_tune(
     # print model output
     out = model.generate(max_length=1000, do_sample=True)  # type: ignore
     print(tokenizer.decode(out[0], skip_special_tokens=True))
-
-    # Save the model
-    model.save_pretrained(valid_games_fine_tuned_checkpoint)  # type: ignore
 
     return model
 
@@ -171,3 +167,9 @@ if __name__ == "__main__":
         print(f"Is valid:", str(valid_games))
 
         isValid = all(valid_games)
+
+    # Save the model
+    if not valid_games_fine_tuned_checkpoint.parent.exists():
+        os.mkdir(valid_games_fine_tuned_checkpoint)
+
+    model.save_pretrained(valid_games_fine_tuned_checkpoint)  # type: ignore

@@ -16,7 +16,7 @@ method_config = PPOConfig(
     # PPO Epochs (running the same batch multiple times in a row)
     # "Go over experience multiple times."
     ppo_epochs=6,
-    init_kl_coef=0.1,
+    init_kl_coef=0.3,
     target=None,  # type: ignore
     horizon=10000,  # Not used
     # Discount factor
