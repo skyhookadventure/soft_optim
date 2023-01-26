@@ -60,8 +60,8 @@ def fine_tune(
     This is so that our model reliably outputs allowed game moves.
     """
     # Create tokenized datasets (train and eval)
-    train_dataset = create_dataset(tokenizer, 50000)  # type: ignore
-    eval_dataset = create_dataset(tokenizer, 500)  # type: ignore
+    train_dataset = create_dataset(tokenizer, 1000)  # type: ignore
+    eval_dataset = create_dataset(tokenizer, 10)  # type: ignore
 
     # Initialise Weights & Biases
     if log_weights_and_biases:
@@ -69,9 +69,12 @@ def fine_tune(
         wandb.init(project="soft_optim")
 
     training_args = TrainingArguments(
+        save_strategy="epoch",
         output_dir=".checkpoints",
         evaluation_strategy="epoch",
         num_train_epochs=1,
+        seed=0,
+        data_seed=0
     )
 
     # Fine tune
@@ -123,7 +126,7 @@ def infer_game(
     stripped_samples = []
 
     for full_game in samples:
-        game = TicTacToeGame(full_game)
+        game = TicTacToeGame()
         stripped_samples.append(game.extract_game_string(full_game))
 
     print(stripped_samples)
@@ -152,9 +155,11 @@ if __name__ == "__main__":
         valid_games: List[bool] = []
 
         for full_game in games:
-            game = TicTacToeGame(full_game)
-            game_is_valid = game.check_valid_string
-            valid_games.append(game_is_valid)
+            try:
+                game = TicTacToeGame(full_game)
+                valid_games.append(True)
+            except BaseException:
+                valid_games.append(False)
 
         isValid = all(valid_games)
 
