@@ -430,6 +430,18 @@ sd = ["diffusers", "triton (==2.0.0.dev20221005)"]
 sparse-attn = ["triton (==1.0.0)"]
 
 [[package]]
+name = "dict-deep"
+version = "4.1.2"
+description = "Very simple deep_set and deep_get functions to access nested dicts (or any object) using 'dotted strings' as key."
+category = "main"
+optional = false
+python-versions = ">=3.5,<4.0"
+files = [
+    {file = "dict-deep-4.1.2.tar.gz", hash = "sha256:73c3bef1fc45d271f5e508e957d383fd6438510f50132559374834430bca5401"},
+    {file = "dict_deep-4.1.2-py3-none-any.whl", hash = "sha256:186aeada606e251771b9e4530c1e89aed855b2ab40e7e8cca16c78bce895e2f5"},
+]
+
+[[package]]
 name = "dill"
 version = "0.3.6"
 description = "serialize all of python"
@@ -2762,7 +2774,7 @@ vision = ["Pillow"]
 [[package]]
 name = "trlx"
 version = "0.3.0"
-description = ""
+description = "A repo for distributed training of language models with Reinforcement Learning via Human Feedback (RLHF)"
 category = "main"
 optional = false
 python-versions = "*"
@@ -2791,8 +2803,8 @@ dev = ["black", "flake8", "isort", "pre-commit", "pytest", "pytest-cov"]
 [package.source]
 type = "git"
 url = "https://github.com/CarperAI/trlx.git"
-reference = "refs/pull/218/merge"
-resolved_reference = "5e3f33bee01a20acd94b2fb8183db15c7fd59dc3"
+reference = "HEAD"
+resolved_reference = "ce5bf572c7d210f9a02fa3734eb3e2266bdc6e3c"
 
 [[package]]
 name = "typeguard"
@@ -3150,4 +3162,4 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "53ee87168c39aec2b1b53b6a1580fb7a148414d439b4e0395df275ea3a5975c5"
+content-hash = "bca2624a4cf56487fc7a9a4ee7137e425686a2123ad088a817818149581ac377"

@@ -4,22 +4,18 @@ from typing import Any, Callable, Dict, List
 import numpy as np
 import ray
 import trlx
+import wandb
 from game import TicTacToeGame
 from ray import tune
-from ray.tune.logger import CSVLoggerCallback
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from trlx.data.configs import TRLConfig, ModelConfig, TrainConfig, TokenizerConfig, OptimizerConfig, SchedulerConfig
-from trlx.ray_tune import get_param_space
-from trlx.trainer.nn.ppo_models import PPOConfig
-from ray.tune.search.bayesopt import BayesOptSearch
-from ray.tune import CLIReporter
 from ray.air.integrations.wandb import WandbLoggerCallback
+from ray.tune import CLIReporter
+from ray.tune.search.bayesopt import BayesOptSearch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import soft_optim.quantilizer as quantilizer
-import wandb
 from soft_optim.fine_tune import infer_game, valid_games_fine_tuned_checkpoint
 from soft_optim.metrics import metrics
-
+from soft_optim.trlx_config import default_config_override
 
 wandb_project_name = "soft_optim"
 
@@ -62,89 +58,6 @@ def loglikelihood_approx(rewards, cutoff):
     # return np.log10((rewards > cutoff)+1e-8)
 
 
-# TRLX PPO Method config
-# See https://arxiv.org/pdf/2006.05990.pdf for good defaults
-method_config = PPOConfig(
-    name="ppoconfig",
-    num_rollouts=64,
-    chunk_size=64,
-    # PPO Epochs (running the same batch multiple times in a row)
-    # "Go over experience multiple times."
-    ppo_epochs=6,
-    init_kl_coef=1,
-    target=None,  # type: ignore
-    horizon=10000,  # Not used
-    # Discount factor
-    # "Discount factor γ is one of the most important hyperparameters and should
-    # be tuned per environment (start with γ = 0.99)"
-    gamma=1,  # 1 probably makes most sense given our reward function only runs at the end
-    # GAE Lam
-    # "Use GAE with λ = 0.9 but neither Huber loss nor PPO-style value loss clipping"
-    lam=0.9,
-    cliprange_value=0.2,  # Default was 0.2
-    # Clipping loss
-    # Start with the clipping threshold set to 0.25 but also try lower and
-    # higher values if possible. [0.1, 0.5]
-    cliprange=0.25,  # Default was 0.2
-    vf_coef=1,
-    scale_reward=False,  # type: ignore
-    ref_mean=None,
-    ref_std=None,
-    cliprange_reward=10,
-    # HuggingFace Generate Parameters
-    # https://huggingface.co/docs/transformers/v4.25.1/en/main_classes/text_generation#transformers.GenerationMixin.generate
-    gen_kwargs={
-        "max_new_tokens": 130,
-        "top_k": 0,
-        "top_p": 1.0,
-        "do_sample": True}
-)
-
-# TRLX config
-default_config = TRLConfig(
-    train=TrainConfig(
-        seq_length=1024,
-        epochs=300,
-        total_steps=10000,
-        batch_size=12,
-        checkpoint_interval=10000,
-        eval_interval=100,
-        pipeline="PromptPipeline",
-        orchestrator="PPOOrchestrator",
-        trainer="AcceleratePPOTrainer",
-        # tracker="wandb"
-    ),
-    method=method_config,
-    model=ModelConfig(
-        model_path="lvwerra/gpt2-imdb",
-        num_layers_unfrozen=-1
-    ),
-    tokenizer=TokenizerConfig(
-        tokenizer_path="gpt2",
-        truncation_side="right"
-    ),
-    optimizer=OptimizerConfig(
-        name="adamw",
-        # "Use Adam [8] optimizer with momentum β1 = 0.9 and a tuned learning
-        # rate (0.0003 is a safe default). Linearly decaying the learning rate
-        # may slightly improve performance but is of secondary importance"
-        kwargs={
-            "lr": 3.0e-4,
-            "betas": [0.9, 0.95],
-            "eps": 1.0e-8,
-            "weight_decay": 1.0e-6,
-        }
-    ),
-    scheduler=SchedulerConfig(
-        "cosine_annealing",
-        kwargs={
-            "T_max": 10000,  # train.total_steps
-            "eta_min": 1.0e-4
-        }
-    )
-)
-
-
 def soft_opt_experiment(params: Dict[str, float]) -> None:
     """Soft optimization experiment
 
@@ -162,20 +75,8 @@ def soft_opt_experiment(params: Dict[str, float]) -> None:
         rewards_arr = np.array(rewards)
         return loglikelihood_approx(rewards_arr, cutoff)
 
-    # Config
-    config = default_config
-    config.method.gamma = params["gamma"]  # type: ignore
-    config.optimizer.kwargs["lr"] = params["lr"]  # type: ignore
-    # Float from tuner so must be rounded
-    config.train.batch_size = int(params["batch_size"])
-    config.method.ppo_epochs = int(params["ppo_epochs"])  # type: ignore
-
-    # Weights & Biases
-    # wandb.init(
-    #     project=wandb_project_name,
-    #     config=params,
-    #     name="".join([f"{k}={v}" for k, v in params.items()]),
-    #     reinit=True,)
+    # Set params from Ray
+    config = default_config_override(params)
 
     trainer = trlx.train(
         str(valid_games_fine_tuned_checkpoint),
@@ -205,8 +106,9 @@ def tune_function(
         mode="max",
         # Metric to optimize (can be e.g. "returns/mean" or "metrics/is_valid")
         metric="metrics/true_reward",
+        # Use Bayes Search if params are being tuned
         # https://docs.ray.io/en/latest/tune/faq.html#which-search-algorithm-scheduler-should-i-choose
-        search_alg=BayesOptSearch(),
+        search_alg=BayesOptSearch() if len(param_space) >= 1 else None,
         # scheduler=ASHAScheduler(metric="objective", mode="max"))
         num_samples=-1,  # Keep sampling forever
         max_concurrent_trials=8
@@ -218,7 +120,8 @@ def tune_function(
         metric_columns=[
             "metrics/true_reward",
             "returns/mean",
-            "metrics/is_valid"])
+            "metrics/is_valid"]
+    )
 
     tuner = tune.Tuner(
         tune.with_resources(train_function, resources=resources),
@@ -235,10 +138,7 @@ def tune_function(
         ),
     )
 
-    results = tuner.fit()
-
-    print("Best hyper-parameters found were: ",
-          results.get_best_result().config)
+    tuner.fit()
 
 
 if __name__ == "__main__":
@@ -251,14 +151,14 @@ if __name__ == "__main__":
 
     # Ray: Param config
     # Good choices from https://arxiv.org/pdf/2006.05990.pdf (in comments
-    # below). Note if you add more they must also be set in the
-    # soft_opt_experiment function
+    # below). Must be set using deep dictionary notation.
     param_space: Dict = {
-        "lr": tune.loguniform(1e-3, 1e-7),
-        "gamma": tune.loguniform(0.95, 1.0),
-        # Float to work with search (rounded later)
-        "batch_size": tune.loguniform(4, 8),
-        "ppo_epochs": tune.loguniform(2, 16)
+        # "method.init_kl_coef": tune.loguniform(0.001, 10),
+        # "optimizer.kwargs.lr": tune.loguniform(1e-5, 1e-9),
+        # "method.gamma": tune.loguniform(0.95, 1.0),
+        # # Float to work with search (rounded later)
+        # "train.batch_size": tune.loguniform(8, 256),
+        # "method.ppo_epochs": tune.loguniform(2, 16)
     }
 
     # Weights & Biases
