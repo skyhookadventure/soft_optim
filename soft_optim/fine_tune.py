@@ -5,13 +5,14 @@ from typing import List, Union
 
 import numpy as np
 import torch
+import wandb
+
 from datasets import Dataset
 from transformers import (AutoModelForCausalLM, AutoTokenizer, PreTrainedModel,
                           PreTrainedTokenizer, PreTrainedTokenizerFast,
                           Trainer, TrainingArguments)
 from transformers.utils import logging
 
-import wandb
 from soft_optim.game import TicTacToeGame, generate_dataset
 
 
