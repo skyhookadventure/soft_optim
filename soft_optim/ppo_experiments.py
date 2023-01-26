@@ -160,7 +160,7 @@ if __name__ == "__main__":
     # below). Must be set using deep dictionary notation.
     param_space: Dict = {
         "method.init_kl_coef": tune.loguniform(0.1, 1),
-        "optimizer.kwargs.lr": tune.loguniform(1e-5, 1e-8),
+        "optimizer.kwargs.lr": tune.loguniform(1e-5, 1e-7),
         # "method.gamma": tune.loguniform(0.95, 1.0),
         # # Float to work with search (rounded later)
         # "train.batch_size": tune.loguniform(8, 256),
