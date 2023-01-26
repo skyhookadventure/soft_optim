@@ -49,7 +49,7 @@ def create_dataset(tokenizer: AutoTokenizer,
 
 
 valid_games_fine_tuned_checkpoint = Path(
-    __file__).parent / ".checkpoints" / "fine_tuned_gpt2"
+    __file__).parent / "checkpoints" / "fine_tuned_gpt2"
 
 
 def fine_tune(
