@@ -57,7 +57,8 @@ def get_cutoff() -> float:
 
 def loglikelihood_approx(rewards, cutoff):
     alpha = 30.0  # hyperparameter determining sharpness of cutoff
-    return np.log(1 / (1 + np.exp(-alpha * (rewards - cutoff))))
+    beta = 1  # 0.3
+    return np.log(1 / ((1 + np.exp(-alpha * (rewards - cutoff))**(1 / beta))))
     # return np.log10((rewards > cutoff)+1e-8)
 
 
