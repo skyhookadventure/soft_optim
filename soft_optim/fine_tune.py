@@ -1,12 +1,15 @@
+import random
 from pathlib import Path
 from typing import List, Union
 
+import numpy as np
+import torch
+import wandb
 from datasets import Dataset
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           PreTrainedTokenizer, PreTrainedTokenizerFast,
                           Trainer, TrainingArguments)
 
-import wandb
 from soft_optim.game import TicTacToeGame, generate_dataset
 
 
@@ -57,8 +60,8 @@ def fine_tune(
     """
     # Create tokenized datasets (train and eval)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    train_dataset = create_dataset(tokenizer, 5000)
-    eval_dataset = create_dataset(tokenizer, 50)
+    train_dataset = create_dataset(tokenizer, 50000)
+    eval_dataset = create_dataset(tokenizer, 500)
 
     # Initialise Weights & Biases
     if log_weights_and_biases:
@@ -125,4 +128,9 @@ def infer_game(model: AutoModelForCausalLM,
 
 
 if __name__ == "__main__":
+    # Set random seeds
+    torch.manual_seed(0)
+    np.random.seed(0)
+    random.seed(0)
+
     fine_tune(log_weights_and_biases=True)
