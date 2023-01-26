@@ -159,8 +159,8 @@ if __name__ == "__main__":
     # Good choices from https://arxiv.org/pdf/2006.05990.pdf (in comments
     # below). Must be set using deep dictionary notation.
     param_space: Dict = {
-        # "method.init_kl_coef": tune.loguniform(0.001, 10),
-        # "optimizer.kwargs.lr": tune.loguniform(1e-5, 1e-9),
+        "method.init_kl_coef": tune.loguniform(0.1, 1),
+        "optimizer.kwargs.lr": tune.loguniform(1e-5, 1e-8),
         # "method.gamma": tune.loguniform(0.95, 1.0),
         # # Float to work with search (rounded later)
         # "train.batch_size": tune.loguniform(8, 256),
