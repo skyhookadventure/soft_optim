@@ -112,7 +112,7 @@ def tune_function(
         # https://docs.ray.io/en/latest/tune/faq.html#which-search-algorithm-scheduler-should-i-choose
         search_alg=BayesOptSearch() if len(param_space) >= 1 else None,
         # scheduler=ASHAScheduler(metric="objective", mode="max"))
-        num_samples=-1,  # Keep sampling forever
+        num_samples=1,  # Keep sampling forever
         max_concurrent_trials=8
     )
 
@@ -132,7 +132,6 @@ def tune_function(
         run_config=ray.air.RunConfig(
             local_dir="ray_results",  # Needed for wandb
             callbacks=[
-                # CSVLoggerCallback(),
                 WandbLoggerCallback(project=wandb_project_name)
             ],
             # log_to_file=True, # Needed
@@ -160,8 +159,8 @@ if __name__ == "__main__":
     # Good choices from https://arxiv.org/pdf/2006.05990.pdf (in comments
     # below). Must be set using deep dictionary notation.
     param_space: Dict = {
-        # "method.init_kl_coef": tune.loguniform(0.001, 10),
-        # "optimizer.kwargs.lr": tune.loguniform(1e-5, 1e-9),
+        "method.init_kl_coef": tune.loguniform(0.1, 1),
+        "optimizer.kwargs.lr": tune.loguniform(1e-5, 1e-7),
         # "method.gamma": tune.loguniform(0.95, 1.0),
         # # Float to work with search (rounded later)
         # "train.batch_size": tune.loguniform(8, 256),
