@@ -4,22 +4,20 @@ from typing import Any, Callable, Dict, List
 import numpy as np
 import ray
 import trlx
+import wandb
 from game import TicTacToeGame
 from ray import tune
-from ray.tune.logger import CSVLoggerCallback
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from trlx.data.configs import TRLConfig, ModelConfig, TrainConfig, TokenizerConfig, OptimizerConfig, SchedulerConfig
-from trlx.ray_tune import get_param_space
-from trlx.trainer.nn.ppo_models import PPOConfig
-from ray.tune.search.bayesopt import BayesOptSearch
-from ray.tune import CLIReporter
 from ray.air.integrations.wandb import WandbLoggerCallback
+from ray.tune import CLIReporter
+from ray.tune.search.bayesopt import BayesOptSearch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from trlx.data.configs import (ModelConfig, OptimizerConfig, SchedulerConfig,
+                               TokenizerConfig, TrainConfig, TRLConfig)
+from trlx.trainer.nn.ppo_models import PPOConfig
 
 import soft_optim.quantilizer as quantilizer
-import wandb
 from soft_optim.fine_tune import infer_game, valid_games_fine_tuned_checkpoint
 from soft_optim.metrics import metrics
-
 
 wandb_project_name = "soft_optim"
 
@@ -70,7 +68,7 @@ method_config = PPOConfig(
     # PPO Epochs (running the same batch multiple times in a row)
     # "Go over experience multiple times."
     ppo_epochs=6,
-    init_kl_coef=1,
+    init_kl_coef=0.1,
     target=None,  # type: ignore
     horizon=10000,  # Not used
     # Discount factor
@@ -79,12 +77,12 @@ method_config = PPOConfig(
     gamma=1,  # 1 probably makes most sense given our reward function only runs at the end
     # GAE Lam
     # "Use GAE with λ = 0.9 but neither Huber loss nor PPO-style value loss clipping"
-    lam=0.9,
+    lam=0.95,
     cliprange_value=0.2,  # Default was 0.2
     # Clipping loss
     # Start with the clipping threshold set to 0.25 but also try lower and
     # higher values if possible. [0.1, 0.5]
-    cliprange=0.25,  # Default was 0.2
+    cliprange=0.2,  # Default was 0.2
     vf_coef=1,
     scale_reward=False,  # type: ignore
     ref_mean=None,
@@ -105,13 +103,12 @@ default_config = TRLConfig(
         seq_length=1024,
         epochs=300,
         total_steps=10000,
-        batch_size=12,
+        batch_size=16,
         checkpoint_interval=10000,
         eval_interval=100,
         pipeline="PromptPipeline",
         orchestrator="PPOOrchestrator",
         trainer="AcceleratePPOTrainer",
-        # tracker="wandb"
     ),
     method=method_config,
     model=ModelConfig(
@@ -128,7 +125,7 @@ default_config = TRLConfig(
         # rate (0.0003 is a safe default). Linearly decaying the learning rate
         # may slightly improve performance but is of secondary importance"
         kwargs={
-            "lr": 3.0e-4,
+            "lr": 1.0e-5,
             "betas": [0.9, 0.95],
             "eps": 1.0e-8,
             "weight_decay": 1.0e-6,
@@ -163,11 +160,12 @@ def soft_opt_experiment(params: Dict[str, float]) -> None:
 
     # Config
     config = default_config
-    config.method.gamma = params["gamma"]  # type: ignore
-    config.optimizer.kwargs["lr"] = params["lr"]  # type: ignore
-    # Float from tuner so must be rounded
-    config.train.batch_size = int(params["batch_size"])
-    config.method.ppo_epochs = int(params["ppo_epochs"])  # type: ignore
+    # config.method.gamma = params["gamma"]  # type: ignore
+    # config.optimizer.kwargs["lr"] = params["lr"]  # type: ignore
+    # # Float from tuner so must be rounded
+    # config.train.batch_size = int(params["batch_size"])
+    # config.method.ppo_epochs = int(params["ppo_epochs"])  # type: ignore
+    # config.method.init_kl_coef = params["init_kl_coef"]  # type: ignore
 
     trainer = trlx.train(
         str(valid_games_fine_tuned_checkpoint),
@@ -244,11 +242,12 @@ if __name__ == "__main__":
     # below). Note if you add more they must also be set in the
     # soft_opt_experiment function
     param_space: Dict = {
-        "lr": tune.loguniform(1e-5, 1e-9),
-        "gamma": tune.loguniform(0.95, 1.0),
-        # Float to work with search (rounded later)
-        "batch_size": tune.loguniform(4, 128),
-        "ppo_epochs": tune.loguniform(2, 16)
+        # "init_kl_coef": tune.loguniform(0.001, 10),
+        # "lr": tune.loguniform(1e-5, 1e-9),
+        # "gamma": tune.loguniform(0.95, 1.0),
+        # # Float to work with search (rounded later)
+        # "batch_size": tune.loguniform(8, 256),
+        # "ppo_epochs": tune.loguniform(2, 16)
     }
 
     # Weights & Biases
