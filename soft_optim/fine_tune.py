@@ -157,7 +157,7 @@ if __name__ == "__main__":
     while not isValid:
         fine_tune(model, tokenizer, False)
 
-        games = infer_game(model, tokenizer, 5)
+        games = infer_game(model, tokenizer, 20)
         valid_games: List[bool] = []
 
         for full_game in games:
