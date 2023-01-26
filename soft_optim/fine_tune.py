@@ -8,7 +8,7 @@ import wandb
 from datasets import Dataset
 from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           PreTrainedTokenizer, PreTrainedTokenizerFast,
-                          Trainer, TrainingArguments)
+                          Trainer, TrainingArguments, PreTrainedModel)
 
 from soft_optim.game import TicTacToeGame, generate_dataset
 
@@ -33,9 +33,9 @@ def create_dataset(tokenizer: AutoTokenizer,
     # Tokenize the text prompts (creates "input_ids" property for each dataset
     # item)
     dataset = dataset.map(
-        lambda examples: tokenizer(
-            examples["text"]),
-        batched=True)
+        lambda examples: tokenizer(examples["text"]),  # type: ignore
+        batched=True
+    )
 
     # Set the labels to be the same as the input IDs
     dataset = dataset.map(
@@ -51,7 +51,8 @@ valid_games_fine_tuned_checkpoint = Path(
 
 
 def fine_tune(
-    model_name: str = "gpt2",
+    model: PreTrainedModel,
+    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
     log_weights_and_biases: bool = False,
 ) -> AutoModelForCausalLM:
     """Fine tune a language model on the games dataset
@@ -59,45 +60,45 @@ def fine_tune(
     This is so that our model reliably outputs allowed game moves.
     """
     # Create tokenized datasets (train and eval)
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    train_dataset = create_dataset(tokenizer, 50000)
-    eval_dataset = create_dataset(tokenizer, 500)
+    train_dataset = create_dataset(tokenizer, 50000)  # type: ignore
+    eval_dataset = create_dataset(tokenizer, 500)  # type: ignore
 
     # Initialise Weights & Biases
     if log_weights_and_biases:
         wandb.login()
         wandb.init(project="soft_optim")
 
-    # Create the model
-    model = AutoModelForCausalLM.from_pretrained(model_name)
     training_args = TrainingArguments(
         output_dir=".checkpoints",
         evaluation_strategy="epoch",
-        num_train_epochs=5,
+        num_train_epochs=1,
     )
 
     # Fine tune
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=eval_dataset,
+        train_dataset=train_dataset,  # type: ignore
+        eval_dataset=eval_dataset,  # type: ignore
 
     )
     trainer.train()
 
     # print model output
-    out = model.generate(max_length=1000, do_sample=True)
+    out = model.generate(max_length=1000, do_sample=True)  # type: ignore
     print(tokenizer.decode(out[0], skip_special_tokens=True))
 
     # Save the model
-    model.save_pretrained(valid_games_fine_tuned_checkpoint)
+    model.save_pretrained(valid_games_fine_tuned_checkpoint)  # type: ignore
 
     return model
 
 
-def infer_game(model: AutoModelForCausalLM,
-               tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast], num_samples: int = 1) -> List[str]:
+def infer_game(
+    model: AutoModelForCausalLM,
+    tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast],
+    num_samples: int = 1
+) -> List[str]:
     """Infer a full game from just the start text
 
     Args:
@@ -106,7 +107,7 @@ def infer_game(model: AutoModelForCausalLM,
         num_samples: Number of samples to generate
 
     Returns:
-        str: Inferred game board states only (no start or end text)
+        bool: All games are valid
     """
     n = num_samples
     game_start_text = "Let's play Tic Tac Toe:\n"
@@ -120,9 +121,12 @@ def infer_game(model: AutoModelForCausalLM,
 
     # Get just the board states
     stripped_samples = []
-    game = TicTacToeGame()
+
     for full_game in samples:
+        game = TicTacToeGame(full_game)
         stripped_samples.append(game.extract_game_string(full_game))
+
+    print(stripped_samples)
 
     return stripped_samples
 
@@ -133,4 +137,25 @@ if __name__ == "__main__":
     np.random.seed(0)
     random.seed(0)
 
-    fine_tune(log_weights_and_biases=True)
+    # Create the model
+    model_name = "gpt2"
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    isValid: bool = False
+
+    # Train until
+    while not isValid:
+        fine_tune(model, tokenizer, True)
+
+        games = infer_game(model, tokenizer, 5)
+        valid_games: List[bool] = []
+
+        for full_game in games:
+            game = TicTacToeGame(full_game)
+            game_is_valid = game.check_valid_string
+            valid_games.append(game_is_valid)
+
+        isValid = all(valid_games)
+
+        print(f"Is valid: {str(isValid)}")

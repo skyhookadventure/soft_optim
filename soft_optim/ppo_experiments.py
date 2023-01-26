@@ -132,7 +132,6 @@ def tune_function(
         run_config=ray.air.RunConfig(
             local_dir="ray_results",  # Needed for wandb
             callbacks=[
-                # CSVLoggerCallback(),
                 WandbLoggerCallback(project=wandb_project_name)
             ],
             # log_to_file=True, # Needed

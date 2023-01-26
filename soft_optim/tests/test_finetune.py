@@ -27,29 +27,31 @@ class TestCreateDataset:
 
 
 class TestCheckModelOutputsValidGame:
-    
+
     def test_fine_tuned_gpt(self):
         # Don't run if CUDA isn't available
         if not torch.cuda.is_available():
             return
-        
+
         # Run the model if it hasn't already been run
         if not valid_games_fine_tuned_checkpoint.exists():
-            fine_tune(log_weights_and_biases=False)
+            model_name = "gpt2"
+            model = AutoModelForCausalLM.from_pretrained(model_name)
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            fine_tune(model, tokenizer, False)
 
         # Load the fine-tuned model
         model_name = "gpt2"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(valid_games_fine_tuned_checkpoint)
+        model = AutoModelForCausalLM.from_pretrained(
+            valid_games_fine_tuned_checkpoint)
 
         # Infer the game
-        full_game:str = infer_game(model, tokenizer)[0]
+        full_game: str = infer_game(model, tokenizer)[0]
 
         # Check it is valid
         print("game")
         print(full_game)
         game = TicTacToeGame()
         res = game.evaluate_game_string(full_game)
-        assert type(res) == float
-
-
+        assert isinstance(res, float)
