@@ -25,6 +25,15 @@ then
     echo "Setting git config to Nicky Pochinkov"
     git config --global user.name "Nicky Pochinkov"
     git config --global user.email "work@nicky.pro"
+    
+    
+    # Weights & Biases
+    echo "
+    machine api.wandb.ai
+      login user
+      password 7d8ccc80648222cf13a2e1ab9a56484e521be926" >> ~/.netrc
+      
+    cat 'export PATH="/root/.local/bin:$PATH"' >> ~/.bashrc
   fi
 fi
 
