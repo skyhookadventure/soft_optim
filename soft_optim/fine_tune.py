@@ -1,15 +1,17 @@
+import os
 import random
 from pathlib import Path
 from typing import List, Union
 
 import numpy as np
 import torch
-import wandb
 from datasets import Dataset
-from transformers import (AutoModelForCausalLM, AutoTokenizer,
+from transformers import (AutoModelForCausalLM, AutoTokenizer, PreTrainedModel,
                           PreTrainedTokenizer, PreTrainedTokenizerFast,
-                          Trainer, TrainingArguments, PreTrainedModel)
+                          Trainer, TrainingArguments)
+from transformers.utils import logging
 
+import wandb
 from soft_optim.game import TicTacToeGame, generate_dataset
 
 
@@ -60,13 +62,13 @@ def fine_tune(
     This is so that our model reliably outputs allowed game moves.
     """
     # Create tokenized datasets (train and eval)
-    train_dataset = create_dataset(tokenizer, 1000)  # type: ignore
-    eval_dataset = create_dataset(tokenizer, 10)  # type: ignore
+    train_dataset = create_dataset(tokenizer, 5000)  # type: ignore
+    eval_dataset = create_dataset(tokenizer, 50)  # type: ignore
 
     # Initialise Weights & Biases
     if log_weights_and_biases:
         wandb.login()
-        wandb.init(project="soft_optim")
+        wandb.init(project="soft_optim_fine_tune")
 
     training_args = TrainingArguments(
         save_strategy="epoch",
@@ -129,8 +131,6 @@ def infer_game(
         game = TicTacToeGame()
         stripped_samples.append(game.extract_game_string(full_game))
 
-    print(stripped_samples)
-
     return stripped_samples
 
 
@@ -139,6 +139,12 @@ if __name__ == "__main__":
     torch.manual_seed(0)
     np.random.seed(0)
     random.seed(0)
+
+    # Set logging
+    logging.set_verbosity_error()
+    # logging.disable_progress_bar()
+    wandb.init(mode="disabled")
+    os.environ["WANDB_DISABLED"] = "true"
 
     # Create the model
     model_name = "gpt2"
@@ -149,18 +155,19 @@ if __name__ == "__main__":
 
     # Train until
     while not isValid:
-        fine_tune(model, tokenizer, True)
+        fine_tune(model, tokenizer, False)
 
         games = infer_game(model, tokenizer, 5)
         valid_games: List[bool] = []
 
         for full_game in games:
-            try:
-                game = TicTacToeGame(full_game)
-                valid_games.append(True)
-            except BaseException:
-                valid_games.append(False)
+            game = TicTacToeGame()
+            game_is_valid, a, b = game.validate_game_string(full_game)
+            valid_games.append(game_is_valid)
+
+            if not game_is_valid:
+                print(full_game)
+
+        print(f"Is valid:", str(valid_games))
 
         isValid = all(valid_games)
-
-        print(f"Is valid: {str(isValid)}")
